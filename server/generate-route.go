@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/jinzhu/gorm"
 	"github.com/raphaelreyna/latte/compile"
 	"io"
 	"log"
@@ -11,7 +12,7 @@ import (
 	"text/template"
 )
 
-func HandleGenerate(w http.ResponseWriter, r *http.Request) {
+func handleGenerate(db *gorm.DB, w http.ResponseWriter, r *http.Request) {
 	// Define request struct
 	reqStruct := struct {
 		// Template is base64 encoded .tex file
