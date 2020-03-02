@@ -7,6 +7,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	_ "github.com/lib/pq"
 	ft "github.com/raphaelreyna/goft"
+	"io"
 )
 
 func NewDBConn(dbType, connstr string, retries uint) (db *gorm.DB, err error) {
@@ -47,4 +48,33 @@ func newFNConnFunc(dbType, conn string) (db *gorm.DB, f ft.FailableNullaryFunc) 
 		return nil
 	}
 	return
+}
+
+type DB interface {
+	// Store should be capable of storing a given []byte or contents of an io.ReadCloser
+	Store(uid string, i interface{}) error
+	// Fetch should return either a []byte, or io.ReadCloser.
+	// If the requested resource could not be found, both return values should be nil
+	Fetch(uid string) (interface{}, error)
+}
+
+type SQLite struct {
+	Conn string
+	db   *gorm.DB
+}
+
+func (d *SQLite) Store(i interface{}, uid string) error {
+	type fileBlob struct {
+		uid  string
+		data []byte
+	}
+	type fileReader struct {
+		uid    string
+		reader io.Reader
+	}
+	type jsonString struct {
+		uid  string
+		data string
+	}
+	return nil
 }

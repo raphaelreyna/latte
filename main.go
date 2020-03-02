@@ -3,20 +3,27 @@ package main
 import (
 	"github.com/raphaelreyna/latte/server"
 	"log"
+	"net/http"
+	"os"
 	"os/exec"
 )
 
 func main() {
-	// Make sure pdflatex is installed on the host
-	if !HasPDFLatex() {
-		log.Fatal("pdflatex binary not found in your $PATH")
-	}
-	// Get config
-	c := server.DefaultedConfig()
-	log.Fatal(server.ListenAndServe(c))
-}
+	errLog := log.New(os.Stderr, "ERROR: ", log.Lshortfile|log.LstdFlags)
+	infoLog := log.New(os.Stdout, "INFO: ", log.LstdFlags)
 
-func HasPDFLatex() bool {
-	_, err := exec.LookPath("pdflatex")
-	return err == nil
+	if _, err := exec.LookPath("pdflatex"); err != nil {
+		errLog.Fatal("pdflatex binary not found in your $PATH")
+	}
+
+	db, err := newDB()
+	if err != nil {
+		errLog.Fatal(err)
+	}
+
+	s, err := server.NewServer(os.Getenv("LATTE_ROOT"), db, errLog, infoLog)
+	if err != nil {
+		errLog.Fatal(err)
+	}
+	errLog.Fatal(http.ListenAndServe(":27182", s))
 }

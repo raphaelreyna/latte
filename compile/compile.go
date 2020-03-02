@@ -8,7 +8,7 @@ import (
 	"text/template"
 )
 
-func Compile(tmpl *template.Template, deets *map[string]interface{}, jobname string) (*os.File, error) {
+func Compile(tmpl *template.Template, deets map[string]interface{}, jobname string) (*os.File, error) {
 	os.Chdir(jobname)
 	// Prepare pdflatex and grab a pipe to its stdin
 	jn := "-jobname=" + jobname

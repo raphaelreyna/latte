@@ -1,43 +1,67 @@
 package server
 
 import (
+	"encoding/json"
 	"github.com/gorilla/mux"
-	"github.com/jinzhu/gorm"
+	"io"
+	"log"
 	"net/http"
 	"os"
 )
 
-type Handler struct {
-	HandlerFunc func(db *gorm.DB, w http.ResponseWriter, r *http.Request)
-	DB          *gorm.DB
+type Server struct {
+	router  *mux.Router
+	rootDir string
+	db      DB
+	errLog  *log.Logger
+	infoLog *log.Logger
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.HandlerFunc(h.DB, w, r)
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(w, r)
 }
 
-func EnsureRootDir(c *ServerConf) error {
-	// Check if rootdir exists
-	_, err := os.Stat(c.RootDir)
-	if os.IsNotExist(err) {
-		err = os.Mkdir(c.RootDir, 0755)
+func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) {
+	w.WriteHeader(code)
+	if payload == nil {
+		return
+	}
+	switch payload.(type) {
+	case string:
+		w.Write([]byte(payload.(string)))
+		return
+	case []byte:
+		w.Write(payload.([]byte))
+		return
+	case io.ReadCloser:
+		_, err := io.Copy(w, payload.(io.ReadCloser))
 		if err != nil {
-			return err
+			s.errLog.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		return
+	default:
+		err := json.NewEncoder(w).Encode(payload)
+		if err != nil {
+			s.errLog.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+}
+
+func NewServer(root string, db DB, err, info *log.Logger) (*Server, error) {
+	s := &Server{rootDir: root, db: db, errLog: err, infoLog: info}
+	// Ensure root directory exists
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		if err = os.Mkdir(root, 0755); err != nil {
+			return nil, err
 		}
 	} else if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
-}
-
-func ListenAndServe(c *ServerConf) error {
-	err := EnsureRootDir(c)
-	if err != nil {
-		return err
-	}
-	router := mux.NewRouter()
-	router.Handle("/generate", &Handler{
-		HandlerFunc: handleGenerate,
-	})
-	return http.ListenAndServe(c.Port, router)
+	s.routes()
+	return s, nil
 }
