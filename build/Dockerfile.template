@@ -1,0 +1,14 @@
+# Build Stage
+FROM golang:1.13 AS build-stage
+ADD ./ /latte
+RUN cd /latte && env GOOS=linux GOARCH=amd64 go build {BUILD_TAGS} ./cmd/latte
+
+# Final Stage
+FROM ubuntu:19.10
+MAINTAINER Raphael Reyna <raphaelreyna@protonmail.com>
+RUN apt update -q \
+  && env DEBIAN_FRONTEND=noninteractive \
+  apt install -qy {TEXLIVE_PACKAGES} \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=build-stage /latte/latte /bin/latte
+CMD ["latte"]
