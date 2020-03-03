@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/exec"
@@ -8,11 +9,11 @@ import (
 	"text/template"
 )
 
-func Compile(tmpl *template.Template, dtls map[string]interface{}, dir string) (string, error) {
+func Compile(ctx context.Context, tmpl *template.Template, dtls map[string]interface{}, dir string) (string, error) {
 	os.Chdir(dir)
 	// Prepare pdflatex and grab a pipe to its stdin
 	jn := filepath.Base(dir)
-	cmd := exec.Command("pdflatex", "-halt-on-error", "-jobname="+jn)
+	cmd := exec.CommandContext(ctx, "pdflatex", "-halt-on-error", "-jobname="+jn)
 	cmdStdin, err := cmd.StdinPipe()
 	if err != nil {
 		return "", err

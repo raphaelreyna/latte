@@ -125,7 +125,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				var tmplBytes []byte
 				_, err := os.Stat(tmplPath)
 				if os.IsNotExist(err) {
-					rawData, err := s.db.Fetch(tmplID)
+					rawData, err := s.db.Fetch(r.Context(), tmplID)
 					if err != nil {
 						tmpls.Unlock()
 						s.errLog.Println(err)
@@ -186,7 +186,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			rscPath, exists := rscs.r[rscID]
 			if _, err = os.Stat(rscPath); os.IsNotExist(err) || !exists {
 				// If path not in memory, then file doesn't exit on local disk (but lets double check) and we need to download it.
-				rscData, err := s.db.Fetch(rscID)
+				rscData, err := s.db.Fetch(r.Context(), rscID)
 				if err != nil {
 					rscs.Unlock()
 					s.errLog.Println(err)
@@ -223,7 +223,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			var dtlsBytes []byte
 			_, err = os.Stat(dtlsPath)
 			if os.IsNotExist(err) {
-				dtlsData, err := s.db.Fetch(dtID)
+				dtlsData, err := s.db.Fetch(r.Context(), dtID)
 				if err != nil {
 					s.errLog.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -257,7 +257,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			}
 		}
 		// Compile pdf
-		pdfPath, err := compile.Compile(j.tmpl, j.details, j.dir)
+		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir)
 		if err != nil {
 			s.errLog.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

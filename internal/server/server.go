@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"io"
@@ -8,6 +9,14 @@ import (
 	"net/http"
 	"os"
 )
+
+type DB interface {
+	// Store should be capable of storing a given []byte or contents of an io.ReadCloser
+	Store(ctx context.Context, uid string, i interface{}) error
+	// Fetch should return either a []byte, or io.ReadCloser.
+	// If the requested resource could not be found, both return values should be nil
+	Fetch(ctx context.Context, uid string) (interface{}, error)
+}
 
 type Server struct {
 	router  *mux.Router

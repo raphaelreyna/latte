@@ -1,13 +1,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/jinzhu/gorm"
 	_ "github.com/lib/pq"
-	"github.com/raphaelreyna/latte/server"
+	"github.com/raphaelreyna/latte/internal/server"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 )
 
@@ -21,7 +23,7 @@ type Blob struct {
 	Bytes []byte
 }
 
-func newDB() (server.DB, error) {
+func newDB(l *log.Logger) (server.DB, error) {
 	host := os.Getenv("LATTE_DB_HOST")
 	port := os.Getenv("LATTE_DB_PORT")
 	name := os.Getenv("LATTE_DB_NAME")
@@ -43,10 +45,11 @@ func newDB() (server.DB, error) {
 		return nil, err
 	}
 	db.db.AutoMigrate(&Blob{})
+	l.Printf("connected to database %s at host %s, and as user %s", name, host, username)
 	return &db, nil
 }
 
-func (db *Database) Store(uid string, i interface{}) error {
+func (db *Database) Store(ctx context.Context, uid string, i interface{}) error {
 	var err error
 	blob := Blob{UID: uid}
 	switch i.(type) {
@@ -67,7 +70,7 @@ func (db *Database) Store(uid string, i interface{}) error {
 	return db.db.Create(&blob).Error
 }
 
-func (db *Database) Fetch(uid string) (interface{}, error) {
+func (db *Database) Fetch(ctx context.Context, uid string) (interface{}, error) {
 	var blob Blob
 	res := db.db.First(&blob, "uid = ?", uid)
 	if err := res.Error; res.RecordNotFound() {

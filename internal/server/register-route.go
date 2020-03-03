@@ -36,7 +36,7 @@ func (s *Server) handleRegister() http.HandlerFunc {
 		} else if os.IsNotExist(err) {
 			var datai interface{}
 			// If file not found in local disk, check db
-			if datai, err = s.db.Fetch(req.ID); err != nil {
+			if datai, err = s.db.Fetch(r.Context(), req.ID); err != nil {
 				s.errLog.Println(err)
 				s.respond(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -66,7 +66,7 @@ func (s *Server) handleRegister() http.HandlerFunc {
 				return
 			}
 			s.infoLog.Printf("wrote new file to local disk: %s", req.ID)
-			if err = s.db.Store(req.ID, bytes); err != nil {
+			if err = s.db.Store(r.Context(), req.ID, bytes); err != nil {
 				s.errLog.Println(err)
 				s.respond(w, err.Error(), http.StatusInternalServerError)
 				return
