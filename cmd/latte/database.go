@@ -74,7 +74,7 @@ func (db *Database) Fetch(ctx context.Context, uid string) (interface{}, error) 
 	var blob Blob
 	res := db.db.First(&blob, "uid = ?", uid)
 	if err := res.Error; res.RecordNotFound() {
-		return nil, nil
+		return nil, &server.NotFoundError{}
 	} else if err != nil {
 		return nil, err
 	}

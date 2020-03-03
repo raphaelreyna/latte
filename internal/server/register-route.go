@@ -36,22 +36,28 @@ func (s *Server) handleRegister() http.HandlerFunc {
 		} else if os.IsNotExist(err) {
 			var datai interface{}
 			// If file not found in local disk, check db
-			if datai, err = s.db.Fetch(r.Context(), req.ID); err != nil {
-				s.errLog.Println(err)
-				s.respond(w, err.Error(), http.StatusInternalServerError)
-				return
-			} else if datai != nil {
-				go func() {
-					// Save file to local disk for next time
-					bytes := datai.([]byte)
-					if err = ioutil.WriteFile(fpath, bytes, os.ModePerm); err != nil {
-						s.errLog.Println(err)
-					}
-					s.infoLog.Printf("saved file from database to local disk: %s", req.ID)
-				}()
-				w.Header().Set("Content-Type", "application/json")
-				s.respond(w, &response{ID: req.ID}, http.StatusConflict)
-				return
+			datai, err = s.db.Fetch(r.Context(), req.ID)
+			switch err.(type) {
+			case *NotFoundError:
+				break
+			default:
+				if err != nil {
+					s.errLog.Println(err)
+					s.respond(w, err.Error(), http.StatusInternalServerError)
+					return
+				} else if datai != nil {
+					go func() {
+						err = toDisk(datai, fpath)
+						if err != nil {
+							s.errLog.Printf("error while creating file at %s: %v", fpath, err)
+							return
+						}
+						s.infoLog.Printf("saved file from database to local disk: %s", req.ID)
+					}()
+					w.Header().Set("Content-Type", "application/json")
+					s.respond(w, &response{ID: req.ID}, http.StatusConflict)
+					return
+				}
 			}
 			// File doesn't exist locally or in db
 			bytes, err := base64.StdEncoding.DecodeString(req.Data)

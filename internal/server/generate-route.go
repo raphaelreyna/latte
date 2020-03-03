@@ -126,23 +126,24 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				_, err := os.Stat(tmplPath)
 				if os.IsNotExist(err) {
 					rawData, err := s.db.Fetch(r.Context(), tmplID)
+					switch err.(type) {
+					case *NotFoundError:
+						tmpls.Unlock()
+						msg := fmt.Sprintf("template with id %s not found", tmplID)
+						http.Error(w, msg, http.StatusInternalServerError)
+						return
+					default:
+						if err != nil {
+							tmpls.Unlock()
+							s.errLog.Println(err)
+							http.Error(w, err.Error(), http.StatusInternalServerError)
+							return
+						}
+					}
+					err = toDisk(rawData, tmplPath)
 					if err != nil {
 						tmpls.Unlock()
-						s.errLog.Println(err)
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-					var ok bool
-					tmplBytes, ok = rawData.([]byte)
-					if !ok {
-						tmpls.Unlock()
-						s.respond(w, fmt.Sprintf("template %s not found", tmplID), http.StatusBadRequest)
-						return
-					}
-					err = ioutil.WriteFile(tmplPath, tmplBytes, os.ModePerm)
-					if err != nil {
-						tmpls.Unlock()
-						s.errLog.Println(err)
+						s.errLog.Printf("error while writing to %s: %v", tmplPath, err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
@@ -187,23 +188,25 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			if _, err = os.Stat(rscPath); os.IsNotExist(err) || !exists {
 				// If path not in memory, then file doesn't exit on local disk (but lets double check) and we need to download it.
 				rscData, err := s.db.Fetch(r.Context(), rscID)
-				if err != nil {
-					rscs.Unlock()
-					s.errLog.Println(err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+				switch err.(type) {
+				case *NotFoundError:
+					tmpls.Unlock()
+					msg := fmt.Sprintf("resource with id %s not found", rscID)
+					http.Error(w, msg, http.StatusInternalServerError)
 					return
-				}
-				rscBytes, ok := rscData.([]byte)
-				if !ok {
-					rscs.Unlock()
-					s.respond(w, fmt.Sprintf("resource %s not found", rscID), http.StatusBadRequest)
-					return
+				default:
+					if err != nil {
+						rscs.Unlock()
+						s.errLog.Println(err)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
 				}
 				rscPath = filepath.Join(s.rootDir, rscID)
-				err = ioutil.WriteFile(rscPath, rscBytes, os.ModePerm)
+				err = toDisk(rscData, rscPath)
 				if err != nil {
-					rscs.Unlock()
-					s.errLog.Println(err)
+					tmpls.Unlock()
+					s.errLog.Printf("error while writing to %s: %v", rscPath, err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
@@ -220,43 +223,68 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// Load and parse details json from local disk, downloading it from the db if not found on local disk
 		if dtID := q.Get("dtls"); len(j.details) == 0 && dtID != "" {
 			dtlsPath := filepath.Join(s.rootDir, dtID)
-			var dtlsBytes []byte
 			_, err = os.Stat(dtlsPath)
 			if os.IsNotExist(err) {
 				dtlsData, err := s.db.Fetch(r.Context(), dtID)
+				switch err.(type) {
+				case *NotFoundError:
+					msg := fmt.Sprintf("details json with id %s not found", dtID)
+					http.Error(w, msg, http.StatusInternalServerError)
+					return
+				default:
+					if err != nil {
+						s.errLog.Println(err)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+				}
+				err = toDisk(dtlsData, dtlsPath)
 				if err != nil {
-					s.errLog.Println(err)
+					s.errLog.Printf("error while writing to %s: %v", dtlsPath, err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				var ok bool
-				dtlsBytes, ok = dtlsData.([]byte)
-				if !ok {
-					s.respond(w, fmt.Sprintf("json file %s not found", dtID), http.StatusBadRequest)
-					return
+				switch dtlsData.(type) {
+				case []byte:
+					err = json.Unmarshal(dtlsData.([]byte), &j.details)
+					if err != nil {
+						s.errLog.Println(err)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+				case io.ReadCloser:
+					rc := dtlsData.(io.ReadCloser)
+					err = json.NewDecoder(rc).Decode(&j.details)
+					if err != nil {
+						s.errLog.Println(err)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+					rc.Close()
 				}
-				ioutil.WriteFile(dtlsPath, dtlsBytes, os.ModePerm)
 			} else if err != nil {
 				s.errLog.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			if dtlsBytes == nil {
-				dtlsBytes, err = ioutil.ReadFile(dtlsPath)
+			if len(j.details) == 0 {
+				f, err := os.Open(dtlsPath)
 				if err != nil {
 					s.errLog.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-			}
-			err = json.Unmarshal(dtlsBytes, &j.details)
-			if err != nil {
-				s.errLog.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				err = json.NewDecoder(f).Decode(&j.details)
+				if err != nil {
+					s.errLog.Println(err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				f.Close()
 			}
 		}
 		// Compile pdf
+		fmt.Printf("compiling job: %+v", j)
 		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir)
 		if err != nil {
 			s.errLog.Println(err)
