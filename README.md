@@ -1,5 +1,5 @@
 # Latte
-Generate PDFs using LateX templates and JSON
+Generate PDFs using LaTeX templates and JSON
 
 ## How to use
 Latte starts an HTTP server and listens on port 27182 by default at the endpoint `/generate`.
