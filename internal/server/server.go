@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"io"
 	"log"
@@ -53,6 +55,13 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) {
 }
 
 func NewServer(root string, db DB, err, info *log.Logger) (*Server, error) {
+	// Ping db to ensure connection
+	if db != nil {
+		if err := db.Ping(context.Background()); err != nil {
+			return nil, fmt.Errorf("error while pinging database: %v", err)
+		}
+		info.Println("successfully connected to database")
+	}
 	s := &Server{rootDir: root, db: db, errLog: err, infoLog: info}
 	// Ensure root directory exists
 	if _, err := os.Stat(root); os.IsNotExist(err) {

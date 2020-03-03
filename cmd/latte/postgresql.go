@@ -1,3 +1,5 @@
+// +build postgresql
+
 package main
 
 import (
@@ -23,7 +25,15 @@ type Blob struct {
 	Bytes []byte
 }
 
-func newDB(l *log.Logger) (server.DB, error) {
+func init() {
+	var err error
+	db, err = newDB()
+	if err != nil {
+		log.Fatalf("fatal error occurred while creating database connection pool: %v", err)
+	}
+}
+
+func newDB() (server.DB, error) {
 	host := os.Getenv("LATTE_DB_HOST")
 	port := os.Getenv("LATTE_DB_PORT")
 	name := os.Getenv("LATTE_DB_NAME")
@@ -45,7 +55,6 @@ func newDB(l *log.Logger) (server.DB, error) {
 		return nil, err
 	}
 	db.db.AutoMigrate(&Blob{})
-	l.Printf("connected to database %s at host %s, and as user %s", name, host, username)
 	return &db, nil
 }
 
@@ -79,4 +88,8 @@ func (db *Database) Fetch(ctx context.Context, uid string) (interface{}, error) 
 		return nil, err
 	}
 	return blob.Bytes, nil
+}
+
+func (db *Database) Ping(ctx context.Context) error {
+	return db.db.DB().PingContext(ctx)
 }

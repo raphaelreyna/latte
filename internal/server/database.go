@@ -14,6 +14,8 @@ type DB interface {
 	// Fetch should return either a []byte, or io.ReadCloser.
 	// If the requested resource could not be found, error should be of type NotFoundError
 	Fetch(ctx context.Context, uid string) (interface{}, error)
+	// Ping should check if the databases is reachable, if return error should be nil and non-nil otherwise.
+	Ping(ctx context.Context) error
 }
 
 type NotFoundError struct{}

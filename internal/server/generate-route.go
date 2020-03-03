@@ -50,7 +50,14 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		s.infoLog.Printf("creating new temp directory: %s", workDir)
+		s.infoLog.Printf("created new temp directory: %s", workDir)
+		defer func() {
+			go func() {
+				if err = os.RemoveAll(workDir); err != nil {
+					s.errLog.Println(err)
+				}
+			}()
+		}()
 		j := job{dir: workDir, details: map[string]interface{}{}}
 		// Grab any data sent as JSON
 		if r.Header.Get("Content-Type") == "application/json" {
@@ -125,6 +132,12 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				var tmplBytes []byte
 				_, err := os.Stat(tmplPath)
 				if os.IsNotExist(err) {
+					if s.db == nil {
+						tmpls.Unlock()
+						msg := fmt.Sprintf("template with id %s not found", tmplID)
+						s.respond(w, msg, http.StatusBadRequest)
+						return
+					}
 					rawData, err := s.db.Fetch(r.Context(), tmplID)
 					switch err.(type) {
 					case *NotFoundError:
@@ -186,11 +199,17 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			rscs.Lock()
 			rscPath, exists := rscs.r[rscID]
 			if _, err = os.Stat(rscPath); os.IsNotExist(err) || !exists {
+				if s.db == nil {
+					rscs.Unlock()
+					msg := fmt.Sprintf("resource with id %s not found", rscID)
+					s.respond(w, msg, http.StatusBadRequest)
+					return
+				}
 				// If path not in memory, then file doesn't exit on local disk (but lets double check) and we need to download it.
 				rscData, err := s.db.Fetch(r.Context(), rscID)
 				switch err.(type) {
 				case *NotFoundError:
-					tmpls.Unlock()
+					rscs.Unlock()
 					msg := fmt.Sprintf("resource with id %s not found", rscID)
 					http.Error(w, msg, http.StatusInternalServerError)
 					return
@@ -225,6 +244,11 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			dtlsPath := filepath.Join(s.rootDir, dtID)
 			_, err = os.Stat(dtlsPath)
 			if os.IsNotExist(err) {
+				if s.db == nil {
+					msg := fmt.Sprintf("details json with id %s not found", dtID)
+					s.respond(w, msg, http.StatusBadRequest)
+					return
+				}
 				dtlsData, err := s.db.Fetch(r.Context(), dtID)
 				switch err.(type) {
 				case *NotFoundError:
@@ -284,7 +308,6 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			}
 		}
 		// Compile pdf
-		fmt.Printf("compiling job: %+v", j)
 		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir)
 		if err != nil {
 			s.errLog.Println(err)
@@ -300,10 +323,5 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/pdf")
 		io.Copy(w, pdf)
 		pdf.Close()
-		go func() {
-			if err = os.RemoveAll(workDir); err != nil {
-				s.errLog.Println(err)
-			}
-		}()
 	}
 }
