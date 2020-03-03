@@ -6,10 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/raphaelreyna/latte/compile"
+	"fmt"
+	"github.com/raphaelreyna/latte/internal/compile"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,19 +45,23 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// Create temporary directory into which we'll copy all of the required resource files
 		// and eventually run pdflatex in.
 		workDir, err := ioutil.TempDir(s.rootDir, "")
-		s.infoLog.Printf("Creating new temp directory: %s", workDir)
 		if err != nil {
-			log.Println(err)
+			s.errLog.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		s.infoLog.Printf("creating new temp directory: %s", workDir)
 		j := job{dir: workDir, details: map[string]interface{}{}}
 		// Grab any data sent as JSON
 		if r.Header.Get("Content-Type") == "application/json" {
 			var req request
 			err := json.NewDecoder(r.Body).Decode(&req)
-			if err != nil {
-				log.Println(err)
+			switch {
+			case err == io.EOF:
+				s.respond(w, "request header Content-Type set to application/json; received empty body", http.StatusBadRequest)
+				return
+			case err != nil:
+				s.errLog.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -71,12 +75,14 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				if !exists {
 					tBytes, err := base64.StdEncoding.DecodeString(req.Template)
 					if err != nil {
+						tmpls.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 					t, err = template.New(cid).Delims("#!", "!#").Parse(string(tBytes))
 					if err != nil {
+						tmpls.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
@@ -115,24 +121,33 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			t, exists := tmpls.t[tmplID]
 			if !exists {
 				// Try loading the template file from local disk, downloading it if it doesn't exist
-				tmplPath := filepath.Join(workDir, tmplID)
+				tmplPath := filepath.Join(s.rootDir, tmplID)
 				var tmplBytes []byte
-				_, err = os.Stat(tmplPath)
+				_, err := os.Stat(tmplPath)
 				if os.IsNotExist(err) {
 					rawData, err := s.db.Fetch(tmplID)
 					if err != nil {
+						tmpls.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
-					tmplBytes = rawData.([]byte)
+					var ok bool
+					tmplBytes, ok = rawData.([]byte)
+					if !ok {
+						tmpls.Unlock()
+						s.respond(w, fmt.Sprintf("template %s not found", tmplID), http.StatusBadRequest)
+						return
+					}
 					err = ioutil.WriteFile(tmplPath, tmplBytes, os.ModePerm)
 					if err != nil {
+						tmpls.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 				} else if err != nil {
+					tmpls.Unlock()
 					s.errLog.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
@@ -140,6 +155,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				if tmplBytes == nil {
 					tmplBytes, err = ioutil.ReadFile(tmplPath)
 					if err != nil {
+						tmpls.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
@@ -147,6 +163,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				}
 				t, err = template.New(tmplID).Delims("#!", "!#").Parse(string(tmplBytes))
 				if err != nil {
+					tmpls.Unlock()
 					s.errLog.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
@@ -164,33 +181,35 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// Symlink resources into the working directory, downloading those that aren't in the root directory
 		rscsIDs := q["rsc"]
 		for _, rscID := range rscsIDs {
+			// Prevent other routines from downloading this resource if its not found and we're already downloading it.
 			rscs.Lock()
 			rscPath, exists := rscs.r[rscID]
-			_, err = os.Stat(rscPath)
-			if os.IsNotExist(err) == exists {
-				s.errLog.Printf(
-					`cache integrity error: {"rscID": "%s", "osExists": %v, "cacheExists": %v, "osError": %v}`,
-					rscID, os.IsExist(err), exists, err,
-				)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			} else if !exists {
+			if _, err = os.Stat(rscPath); os.IsNotExist(err) || !exists {
+				// If path not in memory, then file doesn't exit on local disk (but lets double check) and we need to download it.
 				rscData, err := s.db.Fetch(rscID)
 				if err != nil {
+					rscs.Unlock()
 					s.errLog.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
+				rscBytes, ok := rscData.([]byte)
+				if !ok {
+					rscs.Unlock()
+					s.respond(w, fmt.Sprintf("resource %s not found", rscID), http.StatusBadRequest)
+					return
+				}
 				rscPath = filepath.Join(s.rootDir, rscID)
-				err = ioutil.WriteFile(rscPath, rscData.([]byte), os.ModePerm)
+				err = ioutil.WriteFile(rscPath, rscBytes, os.ModePerm)
 				if err != nil {
+					rscs.Unlock()
 					s.errLog.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 				rscs.r[rscID] = rscPath
-				rscs.Unlock()
 			}
+			rscs.Unlock()
 			err = os.Symlink(rscPath, filepath.Join(workDir, rscID))
 			if err != nil {
 				s.errLog.Println(err)
@@ -199,8 +218,8 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			}
 		}
 		// Load and parse details json from local disk, downloading it from the db if not found on local disk
-		if dtID := q.Get("dtls"); j.details == nil && dtID != "" {
-			dtlsPath := filepath.Join(workDir, dtID)
+		if dtID := q.Get("dtls"); len(j.details) == 0 && dtID != "" {
+			dtlsPath := filepath.Join(s.rootDir, dtID)
 			var dtlsBytes []byte
 			_, err = os.Stat(dtlsPath)
 			if os.IsNotExist(err) {
@@ -210,7 +229,12 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				dtlsBytes = dtlsData.([]byte)
+				var ok bool
+				dtlsBytes, ok = dtlsData.([]byte)
+				if !ok {
+					s.respond(w, fmt.Sprintf("json file %s not found", dtID), http.StatusBadRequest)
+					return
+				}
 				ioutil.WriteFile(dtlsPath, dtlsBytes, os.ModePerm)
 			} else if err != nil {
 				s.errLog.Println(err)
@@ -225,7 +249,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 					return
 				}
 			}
-			err = json.Unmarshal(dtlsBytes, j.details)
+			err = json.Unmarshal(dtlsBytes, &j.details)
 			if err != nil {
 				s.errLog.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -233,21 +257,25 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			}
 		}
 		// Compile pdf
-		pdf, err := compile.Compile(j.tmpl, j.details, j.dir)
+		pdfPath, err := compile.Compile(j.tmpl, j.details, j.dir)
 		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), 500)
+			s.errLog.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		pdf, err := os.Open(filepath.Join(workDir, pdfPath))
+		if err != nil {
+			s.errLog.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/pdf")
 		io.Copy(w, pdf)
 		pdf.Close()
-		w.WriteHeader(200)
-		//go func() {
-		//	err = compile.CleanUp(workDir)
-		//	if err != nil {
-		//		log.Println(err)
-		//	}
-		//}()
+		go func() {
+			if err = os.RemoveAll(workDir); err != nil {
+				s.errLog.Println(err)
+			}
+		}()
 	}
 }

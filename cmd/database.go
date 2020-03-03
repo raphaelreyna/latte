@@ -75,5 +75,5 @@ func (db *Database) Fetch(uid string) (interface{}, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	return &blob, nil
+	return blob.Bytes, nil
 }

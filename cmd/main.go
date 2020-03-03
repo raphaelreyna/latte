@@ -10,7 +10,7 @@ import (
 
 func main() {
 	errLog := log.New(os.Stderr, "ERROR: ", log.Lshortfile|log.LstdFlags)
-	infoLog := log.New(os.Stdout, "INFO: ", log.LstdFlags)
+	infoLog := log.New(os.Stdout, "INFO: ", log.Lshortfile|log.LstdFlags)
 
 	if _, err := exec.LookPath("pdflatex"); err != nil {
 		errLog.Fatal("pdflatex binary not found in your $PATH")
