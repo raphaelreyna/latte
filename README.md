@@ -16,7 +16,9 @@ Example POST request JSON body:
    }
 }
 ```
-The template `.tex` file should be a template that follows [Go's templating syntax](https://golang.org/pkg/text/template/)
+The template `.tex` file should be a template that follows [Go's templating syntax](https://golang.org/pkg/text/template/).
+
+LaTTe currenlty only accepts using `#!` and `!#` as the left and right delimeters (respectively) in the `.tex` template file.
 
 ## Environment Variables
 ### `LATTE_PORT`
