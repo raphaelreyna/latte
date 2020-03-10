@@ -1,6 +1,8 @@
 # LaTTe
 Generate PDFs using LaTeX templates and JSON.
 
+LaTTe simply wraps [pdfLaTeX](https://tug.org/applications/pdftex/) and exposes it as a service over HTTP; while also offering some degree of templating/pre-processing, caching and persistence.
+
 ## How to use LaTTe
 LaTTe starts an HTTP server and listens on port 27182 by default at the root endpoint `/`.
 Example POST request JSON body:
