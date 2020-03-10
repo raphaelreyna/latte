@@ -19,7 +19,7 @@ RUN apt update -q \\
   apt install -qy {TEXLIVE_PACKAGES} \\
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build-stage /latte/latte /bin/latte
-CMD ["latte"]\
+CMD [\"latte\"]\
 "
 
 IMAGE_TAG=""
@@ -97,7 +97,7 @@ function build_image {
             exit 0
         fi
     fi
-    docker build --tag "raphaelreyna/latte:${IMAGE_TAG}" -f "${TMP_DOCKERFILE}" ..
+    docker build --tag "${IMAGE_NAME}" -f "${TMP_DOCKERFILE}" ..
 }
 
 function clean_up {

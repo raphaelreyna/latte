@@ -15,6 +15,7 @@ type Server struct {
 	router  *mux.Router
 	rootDir string
 	db      DB
+	cmd     string
 	errLog  *log.Logger
 	infoLog *log.Logger
 }
@@ -54,7 +55,7 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) {
 	}
 }
 
-func NewServer(root string, db DB, err, info *log.Logger) (*Server, error) {
+func NewServer(root, cmd string, db DB, err, info *log.Logger) (*Server, error) {
 	// Ping db to ensure connection
 	if db != nil {
 		if err := db.Ping(context.Background()); err != nil {
@@ -71,6 +72,7 @@ func NewServer(root string, db DB, err, info *log.Logger) (*Server, error) {
 	} else if err != nil {
 		return nil, err
 	}
+	s.cmd = cmd
 	s.routes()
 	return s, nil
 }

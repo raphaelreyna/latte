@@ -308,7 +308,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			}
 		}
 		// Compile pdf
-		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir)
+		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir, s.cmd)
 		if err != nil {
 			s.errLog.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

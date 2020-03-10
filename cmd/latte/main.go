@@ -15,8 +15,15 @@ func main() {
 	errLog := log.New(os.Stderr, "ERROR: ", log.Lshortfile|log.LstdFlags)
 	infoLog := log.New(os.Stdout, "INFO: ", log.Lshortfile|log.LstdFlags)
 
-	if _, err := exec.LookPath("pdflatex"); err != nil {
-		errLog.Fatal("pdflatex binary not found in your $PATH")
+	// Check for pdfLaTeX (pdfTex will do in a pinch)
+	cmd := "pdflatex"
+	if _, err := exec.LookPath(cmd); err != nil {
+		errLog.Printf("error while searching checking pdflatex binary: %v\n\tchecking for pdftex binary", err)
+		if _, err := exec.LookPath("pdftex"); err != nil {
+			errLog.Fatal("neither pdflatex nor pdftex binary found in your $PATH")
+		}
+		infoLog.Printf("found pdftex binary; falling back to using pdftex instead of pdflatex")
+		cmd = "pdftex"
 	}
 
 	root := os.Getenv("LATTE_ROOT")
@@ -26,11 +33,12 @@ func main() {
 			errLog.Fatal("error creating root cache directory: %v", err)
 		}
 	}
-	s, err := server.NewServer(root, db, errLog, infoLog)
+	infoLog.Printf("root cache directory: %s", root)
+	s, err := server.NewServer(root, cmd, db, errLog, infoLog)
 	if err != nil {
 		errLog.Fatal(err)
 	}
-	infoLog.Printf("root cache directory: %s", root)
+
 	port := os.Getenv("LATTE_PORT")
 	if port == "" {
 		port = "27182"
