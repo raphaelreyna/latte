@@ -28,7 +28,8 @@ The currently supported tags for LaTTe are:
 LaTTe comes with a build script, build/build.sh, which makes it easy to build LaTTe images with custom Go build flags and tex packages.
 
 ```
-Usage: build.sh [-h] [-s] [-b build_tag] [-p latex_package] [-t image_tag] [-d descriptor] [-H host_name] [-u user_name]
+Usage: build.sh [-h] [-s] [-b build_tag] [-p latex_package] [-t image_tag]
+		[-d descriptor] [-H host_name] [-u user_name]
 
 Description: build.sh parametrically builds and tags Docker images for Latte.
              The tag used for the image follows the template bellow:
