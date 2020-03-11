@@ -128,7 +128,7 @@ type DB interface {
 	// If the requested resource could not be found, error should be of type NotFoundError
 	Fetch(ctx context.Context, uid string) (interface{}, error)
 	// Ping should check if the databases is reachable.
-  // If it is, the return error should be nil and non-nil otherwise.
+  	// If it is, the return error should be nil and non-nil otherwise.
 	Ping(ctx context.Context) error
 }
 ```
