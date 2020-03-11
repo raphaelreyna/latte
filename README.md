@@ -97,7 +97,9 @@ ogJCMhLmEhIyBeIDIgKyAjIS5iISMgXiAyID0gIyEuYyEjIF4gMiQKXGJ5ZQo=", \
 --output pythagorean.pdf "http://localhost:27182"
 ```
 
-which leaves us with the file `pythagorean.pdf`.
+which leaves us with the file `pythagorean.pdf` (the image below is a cropped screenshot of `pythagorean.pdf`):
+![pythagorean_pdf](/../screenshots/screenshots/screenshot.png?raw=true)
+
 
 ## Environment Variables
 ### `LATTE_PORT`
