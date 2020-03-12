@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/raphaelreyna/latte/internal/server"
+	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"os"
@@ -43,6 +44,7 @@ func main() {
 	if port == "" {
 		port = "27182"
 	}
+	server := cors.Default().Handler(s)
 	infoLog.Printf("listening for HTTP traffic on port: %s ...", port)
-	errLog.Fatal(http.ListenAndServe(":"+port, s))
+	errLog.Fatal(http.ListenAndServe(":"+port, server))
 }

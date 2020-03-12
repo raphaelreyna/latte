@@ -6,4 +6,5 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/jinzhu/gorm v1.9.12
 	github.com/lib/pq v1.1.1
+	github.com/rs/cors v1.7.0
 )
