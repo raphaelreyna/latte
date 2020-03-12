@@ -1,0 +1,43 @@
+* {
+    margin: 0; 
+    padding: 0;
+}
+
+div#banner { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    background-color: #66D9EF; 
+    color: #272822;
+    width: 100%; 
+    float: block;
+    z-index: 9;
+    position: absolute;
+    height: 50px;
+}
+
+div#banner-content { 
+    width: 800px; 
+    margin: 0 auto; 
+    padding: 10px; 
+}
+
+div#main-content { 
+    padding-top: 70px;
+} 
+
+.mainContainer {
+    float: left;
+    background-color: powderblue;
+    position: absolute;
+    margin-top: 50px;
+    width: 100%;
+}
+
+.editor {
+    float: left;
+}
+.PDFViewer {
+	background-color: powderblue;
+	float: right;
+}
