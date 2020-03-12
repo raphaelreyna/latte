@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
     entry: './src/index.js',
     output: {
-        path: path.join(__dirname, '/dist'),
+        path: path.join(__dirname, './'),
         filename: 'bundle.js'
     },
     module: {
@@ -18,7 +18,7 @@ module.exports = {
         ]
     },
     devServer: {
-	    contentBase: path.join(__dirname, '/dist'),
+	    contentBase: path.join(__dirname, './'),
 	    compress: true,
 	    port: 8080,
 	    headers: { 
