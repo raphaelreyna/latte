@@ -19,10 +19,10 @@ where \<VERSION\> denotes the latte version, [pg] if present denotes Postgres su
 	
 #### Currently Supported Tags
 The currently supported tags for LaTTe are:
-##### v0.8.1-base
-##### v0.8.1-pg-base
-##### latest, v0.8.1-full
-##### v0.8.1-pg-base
+##### v0.9.1-base
+##### v0.9.1-pg-base
+##### latest, v0.9.1-full
+##### v0.9.1-pg-base
 
 #### Building Custom Images
 LaTTe comes with a build script, build/build.sh, which makes it easy to build LaTTe images with custom Go build flags and tex packages.
