@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/gorilla/handlers"
 	"github.com/raphaelreyna/latte/internal/server"
-	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"os"
@@ -44,7 +44,6 @@ func main() {
 	if port == "" {
 		port = "27182"
 	}
-	server := cors.Default().Handler(s)
 	infoLog.Printf("listening for HTTP traffic on port: %s ...", port)
-	errLog.Fatal(http.ListenAndServe(":"+port, server))
+	errLog.Fatal(http.ListenAndServe(":"+port, handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Access-Control-Allow-Origin"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(s)))
 }

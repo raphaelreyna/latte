@@ -2,7 +2,6 @@ package compile
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,9 +27,8 @@ func Compile(ctx context.Context, tmpl *template.Template, dtls map[string]inter
 	// Run command and grab its output and log it
 	result, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return string(result), err
 	}
-	log.Println(string(result))
 	os.Chdir("..")
 	return jn + ".pdf", nil
 }
