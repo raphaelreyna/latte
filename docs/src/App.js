@@ -31,6 +31,10 @@ export default class App extends React.Component {
 		};
 	}
 
+	componentDidMount() {
+		this.submit();
+	}
+
 	async submit() {
 		const { tex, json } = this.state;
 		const tmpl = Base64.encode(tex);
@@ -47,14 +51,38 @@ export default class App extends React.Component {
 		this.setState({ pdf: blob });
 	}
 
+	clearTex() {
+		this.setState({ tex: '' });
+	}
+
+	clearJSON() {
+		this.setState({ json: '' });
+	}
+
 	render() {
-		return ( 
-    		<div className="App">
+		return (
+		<div>
+			<div id="button-banner">
+				<button className="button" onClick={() => this.submit()}>
+					Submit
+				</button>
+				<button className="button" onClick={() => this.clearTex()}>
+					Clear LaTeX
+				</button>
+				<button className="button" onClick={() => this.clearJSON()}>
+					Clear JSON
+				</button>
+				<form id="github" action="https://github.com/raphaelreyna/latte">
+    			<input className="button" type="submit" value="Github" />
+				</form>
+			</div>
+			<div className="App">
 				<div className="editor">
 					<AceEditor
 						mode="latex"
 						theme="monokai"
-						width="100%"
+						width="85%"
+						height="58vh"
 						onChange={v => this.setState({ tex: v })}
 						value={this.state.tex}
 						name="tex"
@@ -62,21 +90,23 @@ export default class App extends React.Component {
 					<AceEditor
 						mode="json"
 						theme="monokai"
+						width="85%"
+						height="26vh"
 						onChange={v => this.setState({ json: v })}
 						value={this.state.json}
 						name="json"
 					/>
 				</div>
-				<button onClick={() => this.submit()}>
-					Submit
-				</button>
-				<Document 
-					className="PDFViewer"
-					file={this.state.pdf}
-				>
-						<Page pageNumber={1}/>
-				</Document>
-  			</div>
+					<div className="PDFHolder">
+						<Document
+							className="PDFViewer"
+							file={this.state.pdf}
+						>
+								<Page size="A4" pageNumber={1}/>
+						</Document>
+					</div>
+			</div>
+		</div>
 		);
 	}
 }
