@@ -40,7 +40,7 @@ func main() {
 		errLog.Fatal(err)
 	}
 
-	port := os.Getenv("LATTE_PORT")
+	port := os.Getenv("PORT")
 	if port == "" {
 		port = "27182"
 	}
