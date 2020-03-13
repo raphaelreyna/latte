@@ -9,4 +9,5 @@ func (s *Server) routes() {
 	s.router = mux.NewRouter()
 	s.router.HandleFunc("/generate", s.handleGenerate()).Methods("POST")
 	s.router.HandleFunc("/register", s.handleRegister()).Methods("POST")
+	s.router.HandleFunc("/ping", s.handlePing()).Methods("GET")
 }
