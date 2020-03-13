@@ -1,43 +1,81 @@
 * {
-    margin: 0; 
+    margin: 0;
     padding: 0;
 }
 
-div#banner { 
-    position: absolute; 
-    top: 0; 
-    left: 0; 
-    background-color: #66D9EF; 
-    color: #272822;
-    width: 100%; 
+div#banner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: inline-flex;
+    background-color: #163832; /* dark green */
+    color: white;
+    width: 100vw;
     float: block;
     z-index: 9;
-    position: absolute;
-    height: 50px;
+    height: 10vh;
+    font-family: 'Roboto Condensed', sans-serif;
 }
 
-div#banner-content { 
-    width: 800px; 
-    margin: 0 auto; 
-    padding: 10px; 
+div#banner-content {
+  display: inline-flex;
+  margin: auto;
+  padding: 10px;
 }
 
-div#main-content { 
-    padding-top: 70px;
-} 
+
+#button-banner {
+  background-color: #235347;
+  height: 5vh;
+}
 
 .mainContainer {
     float: left;
-    background-color: powderblue;
+    background-color: #8eb69b; /* light green */
     position: absolute;
-    margin-top: 50px;
+    margin-top: 10vh;
     width: 100%;
 }
 
-.editor {
-    float: left;
+.App {
+  margin: 5px;
 }
+
+.editor {
+  float: left;
+  margin: auto;
+  width: 50vw;
+}
+
 .PDFViewer {
-	background-color: powderblue;
-	float: right;
+  width: 50vw;
+  margin: auto;
+}
+
+.button {
+  border: none;
+  color: white;
+  height: 30px;
+  padding: 9px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  background-color: #235347; /* dark green */
+  border-radius: 3px;
+  margin: 5px;
+  font-size: 110%;
+  font-family: 'Roboto Condensed', sans-serif;
+}
+
+.button:hover {
+  box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
+}
+
+.PDFHolder {
+  height: 84vh;
+  overflow-y: scroll;
+}
+
+#github {
+  float: right;
 }
