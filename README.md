@@ -108,7 +108,7 @@ We create our .tex template file pythagorean_template.tex:
 \begin{document}
 \maketitle
 The Pythagorean Theorem: 
-$$ #!.a!# ^ 2 + #!.b!# ^ 2 = #!.c!# ^ 2 $$
+$ #!.a!# ^ 2 + #!.b!# ^ 2 = #!.c!# ^ 2 $
 \end{document}
 ```
 The template `.tex` file should be a template that follows [Go's templating syntax](https://golang.org/pkg/text/template/).
