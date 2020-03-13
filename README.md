@@ -112,7 +112,7 @@ $$ #!.a!# ^ 2 + #!.b!# ^ 2 = #!.c!# ^ 2 $$
 \end{document}
 ```
 The template `.tex` file should be a template that follows [Go's templating syntax](https://golang.org/pkg/text/template/).
-LaTTe currently only accepts using `#!` and `!#` as the left and right delimeters (respectively) in the `.tex` template file. As required by pdfLaTeX, all files must start with the character "\".
+LaTTe currently only accepts using `#!` and `!#` as the left and right delimeters, respectively, in the `.tex` template file. As required by pdfLaTeX, all files must start with the character "\".
 
 We then convert it to base 64:
 ```
