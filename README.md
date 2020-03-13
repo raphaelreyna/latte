@@ -3,6 +3,8 @@ Generate PDFs using LaTeX templates and JSON.
 
 LaTTe simply wraps [pdfLaTeX](https://tug.org/applications/pdftex/) and exposes it as a service over HTTP; while also offering some degree of templating/pre-processing, caching and persistence.
 
+[Try out the demo!](https://raphaelreyna.works/latte)
+
 ## Running LaTTe
 LaTTe is available as a docker image. Running 
 ```
@@ -19,10 +21,10 @@ where \<VERSION\> denotes the latte version, [pg] if present denotes Postgres su
 	
 #### Currently Supported Tags
 The currently supported tags for LaTTe are:
-##### v0.9.1-base
-##### v0.9.1-pg-base
-##### latest, v0.9.1-full
-##### v0.9.1-pg-base
+##### v0.9.4-base
+##### v0.9.4-pg-base
+##### latest, v0.9.4-full
+##### v0.9.4-pg-base
 
 #### Building Custom Images
 LaTTe comes with a build script, build/build.sh, which makes it easy to build LaTTe images with custom Go build flags and tex packages.
@@ -132,7 +134,7 @@ which leaves us with the file `pythagorean.pdf` (the image below is a cropped sc
 
 
 ## Environment Variables
-### `LATTE_PORT`
+### `PORT`
 The port that LaTTe will bind to. The default value is 27182.
 ### `LATTE_ROOT`
 The directory that LaTTe will use to store all of its files. The default value is the users cache directory.
