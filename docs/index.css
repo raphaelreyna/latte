@@ -52,6 +52,11 @@ div#banner-content {
   margin: auto;
 }
 
+.linkButton {
+    width: 130px;
+    text-align: center;
+}
+
 .button {
   border: none;
   color: white;

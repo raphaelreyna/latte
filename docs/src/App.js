@@ -59,7 +59,12 @@ export default class App extends React.Component {
 		this.setState({ json: '' });
 	}
 
-	render() {
+    render() {
+        const pdf = this.state.pdf;
+        var pdfURL = undefined;
+        if (pdf != undefined) {
+            pdfURL = window.URL.createObjectURL(pdf);
+        }
 		return (
 		<div>
 			<div id="button-banner">
@@ -72,6 +77,7 @@ export default class App extends React.Component {
 				<button className="button" onClick={() => this.clearJSON()}>
 					Clear JSON
 				</button>
+        { pdfURL ? <a className="linkButton button" href={pdfURL} download="LaTTe.pdf">Download PDF</a> : null }
 				<form id="github" action="https://github.com/raphaelreyna/latte">
     			<input className="button" type="submit" value="Github" />
 				</form>
