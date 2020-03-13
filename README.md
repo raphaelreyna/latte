@@ -103,9 +103,13 @@ Here we demonstrate how to generate a PDF of the Pythagorean theorem, after subs
 
 We create our .tex template file pythagorean_template.tex:
 ```
-\
-The Pythagorean Theorem: $#!.a!# ^ 2 + #!.b!# ^ 2 = #!.c!# ^ 2$
-\bye
+\documentclass{article}
+\title{LaTTe Sample Document}
+\begin{document}
+\maketitle
+The Pythagorean Theorem: 
+$$ #!.a!# ^ 2 + #!.b!# ^ 2 = #!.c!# ^ 2 $$
+\end{document}
 ```
 The template `.tex` file should be a template that follows [Go's templating syntax](https://golang.org/pkg/text/template/).
 LaTTe currently only accepts using `#!` and `!#` as the left and right delimeters (respectively) in the `.tex` template file. As required by pdfLaTeX, all files must start with the character "\".
