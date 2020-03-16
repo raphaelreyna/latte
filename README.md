@@ -1,74 +1,81 @@
 # LaTTe
 Generate PDFs using LaTeX templates and JSON.
 
-LaTTe simply wraps [pdfLaTeX](https://tug.org/applications/pdftex/) and exposes it as a service over HTTP; while also offering some degree of templating/pre-processing, caching and persistence.
-
 [Try out the demo!](https://raphaelreyna.works/latte)
 
+## Table of Contents
+* [About](#toc-about)
+* [Obtaining LaTTe](#toc-obtaining)
+* [Running LaTTe](#toc-running-latte)
+	* [HTTP Service](#toc-http-service)
+		* [Environment Variables](#toc-env-vars)
+		* [Registering Files](#toc-registering-files)
+		* [Generating PDFs](#toc-service-generating-pdfs)
+			* [Example](#toc-example-1)
+	* [CLI](#toc-cli)
+* [Extending LaTTe](#toc-extending)
+* [Docker Images](#toc-docker)
+	* [Tags](#toc-tags)
+	* [Image Size](#toc-image-size)
+	* [Building Custom Images](#toc-building-custom-images)
+* [Contributing](#toc-contributing)
+* [Roadmap](#toc-roadmap)
+
+<a name="toc-about"></a>
+## About
+LaTTe helps you generate professional looking PDFs by using your .tex files as templates and filling in the details with JSON.
+Under the hood, it uses [pdfTeX / pdfLaTeX](https://tug.org/applications/pdftex) to create a PDF from a .tex file that has been filled in using [Go's templating package](https://golang.org/pkg/text/template/).
+
+LaTTe has two modes of operation:
+* As a service over HTTP, while also offering some degree of templating/pre-processing, caching and persistence. [More info on running LaTTe as an HTTP service.](#toc-http-service)
+* As a cli tool to create PDFs using TeX/LaTeX and JSON files quickly and easily. [More info on using LaTTe's cli.](#toc-cli)
+
+<a name="toc-obtaining"></a>
+## Obtaining LaTTe
+You can download the source code for LaTTe by running `git clone github.com/raphaelreyna/latte` in your terminal.
+LaTTe can then be easily compiled by running `go build ./cmd/latte`. 
+If you wish to build LaTTe with support for PostreSQL, simply run `go build -tags postgresql` instead. [More info on persistent storage support](#toc-extending-latte)
+
+LaTTe is also available via several docker images; running `docker run --rm -d -p 27182:27182 raphaelreyna/latte` will leave you with a basic version of LaTTe running as a an HTTP service.
+[More info on Docker images](#toc-docker)
+
+<a name="toc-running-latte"></a>
 ## Running LaTTe
-LaTTe is available as a docker image. Running 
+
+<a name="toc-http-service"></a>
+### HTTP Service
+LaTTe will run as an HTTP service by default; running `latte` in your terminal will have LaTTe listening for HTTP traffic on port 27182 by default.
+All configurations are done through environment variables.
+
+<a name="toc-env-vars"></a>
+### Environment Variables
+### `PORT`
+The port that LaTTe will bind to. The default value is 27182.
+### `LATTE_ROOT`
+The directory that LaTTe will use to store all of its files. The default value is the users cache directory.
+### `LATTE_DB_HOST`
+The address where LaTTe can reach its database (assuming LaTTe was compiled with database support).
+### `LATTE_DB_PORT`
+The the port that LaTTe will use when connecting to its database (assuming LaTTe was compiled with database support).
+### `LATTE_DB_USERNAME`
+The username that LaTTe will use to connect to its database (assuming LaTTe was compiled with database support).
+### `LATTE_DB_PASSWORD`
+The password that LaTTe will use to connect to its database (assuming LaTTe was compiled with database support).
+### `LATTE_DB_SSL`
+Dictates if the database that LaTTe will use is using SSL; acceptable values are `required` and `disable` (assuming LaTTe was compiled with database support).
+
+<a name="toc-registering-files"></a>
+#### Registering a file
+Files are registered by sending an HTTP POST request to the endpoint "/register" with a JSON body of the form:
 ```
-	$ docker run --rm -d -p 27182:27182 raphaelreyna/latte
+{
+	"id": "WHATEVER_NAME_YOU_WANT"
+	"data": "BASE_64_ENCODED_STRING"
+}
 ```
-from your terminal will leave you with a running LaTTe instance.
 
-### Image Tags
-There are several LaTTe images available to serve a wide range of needs, and they all follow the same tagging convention:
-```
-	latte:<VERSION>-[pg]-<base/full>
-```
-where \<VERSION\> denotes the latte version, [pg] if present denotes Postgres support, and \<base/full\> denotes the presence of either [texlive-full](https://packages.ubuntu.com/eoan/texlive-full) or [texlive-base](https://packages.ubuntu.com/eoan/texlive-base).
-	
-#### Currently Supported Tags
-The currently supported tags for LaTTe are:
-##### v0.9.6-base
-##### v0.9.6-pg-base
-##### latest, v0.9.6-full
-##### v0.9.6-pg-base
-
-#### Building Custom Images
-LaTTe comes with a build script, build/build.sh, which makes it easy to build LaTTe images with custom Go build flags and tex packages.
-
-```
-Usage: build.sh [-h] [-s] [-b build_tag] [-p latex_package] [-t image_tag]
-		[-d descriptor] [-H host_name] [-u user_name]
-
-Description: build.sh parametrically builds and tags Docker images for Latte.
-             The tag used for the image follows the template bellow:
-                 host_name/user_name/image_name:image_tag-descriptor
-
-Flags:
-  -b Build tags to be passed to the Go compiler.
-
-  -d Descriptor to be used when tagging the built image.
-
-  -h Show this help text.
-
-  -p LaTeX package to install, must be available in default Ubuntu repos.
-     (default: texlive-base)
-
-  -s Skip the image building stage. The generated Dockerfile will be sent to std out.
-
-  -t Tag the Docker image.
-     The image will be tagged with the current git tag if this flag is omitted.
-     If no git tag is found, we default to using 'latest' as the image tag.
-
-  -u Username to be used when tagging the built image.
-     (default: raphaelreyna)
-
-  -H Hostname to be used when tagging the built image.
-
-  -y Do not ask to confirm image tab before building image.
-```
-### Image size
-LaTTe relies on [pdflatex](https://www.tug.org/applications/pdftex/) in order to actually create the PDF files.
-Unfortunately, this means that image sizes can be rather large (a full texlive installation is around 4GB).
-The build script in the `build` directory makes it easy to create custom sized images of LaTTe to fit your needs.
-
-## How to use LaTTe
-LaTTe starts an HTTP server and listens on port 27182 by default.
-
-### Generating PDFs
+<a name="toc-service-generating-pdfs"></a>
+#### Generating PDFs
 LaTTe can genarate PDF's from both registered and unregistered resources, templates and json files (which LaTTe calls 'details'). A resource is any kind of file used in compiling the .tex file into a PDF (e.g. images); a template is any valid .tex file.
 
 A registered file is one that has been stored either to LaTTe's local disk and/or to some database (currently only PostgreSQL is supported). Registered files are referenced by an ID. When generating a PDF, all references to registered files are made in the URL of the request; unregistered files are provided as base 64 encoded strings in a JSON body.
@@ -87,18 +94,10 @@ If you wish to also use registered files, you may reference them in the URL:
 ```
 http://localhost:27182/generate?tmpl=TEMPALATE_ID&rsc="RESOURCE_ID&rsc="SOME_OTHER_RESOURCE_ID"&dtls="DETAILS_ID"
 ```
-
 If you provide both a reference to a file and include it in the JSON body, the file you sent in the body will be used.
-### Registering a file
-Files are registered by sending an HTTP POST request to the endpoint "/register" with a JSON body of the form:
-```
-{
-	"id": "WHATEVER_NAME_YOU_WANT"
-	"data": "BASE_64_ENCODED_STRING"
-}
-```
 
-### Example: Generating a PDF from unregistered files
+<a name="toc-example-1"></a>
+##### Example: Generating a PDF from unregistered files
 Here we demonstrate how to generate a PDF of the Pythagorean theorem, after substituting variables a, b & c for x, y & z respectively.
 
 We create our .tex template file pythagorean_template.tex:
@@ -136,25 +135,27 @@ ogJCMhLmEhIyBeIDIgKyAjIS5iISMgXiAyID0gIyEuYyEjIF4gMiQKXGJ5ZQo=", \
 which leaves us with the file `pythagorean.pdf` (the image below is a cropped screenshot of `pythagorean.pdf`):
 ![pythagorean_pdf](/../screenshots/screenshots/screenshot.png?raw=true)
 
+<a name="toc-cli"></a>
+### CLI
+LaTTe offers a CLI to quickly and easily generate templated PDFs using the files on your computer.
+```
+Usage: latte [ -t template_tex_file ] [ -d details_json_file ] [ path/to/resources ]
 
-## Environment Variables
-### `PORT`
-The port that LaTTe will bind to. The default value is 27182.
-### `LATTE_ROOT`
-The directory that LaTTe will use to store all of its files. The default value is the users cache directory.
-### `LATTE_DB_HOST`
-The address where LaTTe can reach its database (assuming LaTTe was compiled with database support).
-### `LATTE_DB_PORT`
-The the port that LaTTe will use when connecting to its database (assuming LaTTe was compiled with database support).
-### `LATTE_DB_USERNAME`
-The username that LaTTe will use to connect to its database (assuming LaTTe was compiled with database support).
-### `LATTE_DB_PASSWORD`
-The password that LaTTe will use to connect to its database (assuming LaTTe was compiled with database support).
-### `LATTE_DB_SSL`
-Dictates if the database that LaTTe will use is using SSL; acceptable values are `required` and `disable` (assuming LaTTe was compiled with database support).
+Description: Generate PDFs using TeX / LaTeX templates and JSON.
 
-## Contributing
-Contributions are welcome!
+
+Flags:
+  -t Path to .tex file to be used as the template.
+
+  -d Path to .json file to be used as the details to fill in to the tamplate.
+  
+Other:
+    The final argument is optional and should be a path to resources needed for compilation, if needed.
+    Resources are any files that are referenced in the .tex file such as image files.
+```
+
+<a name="toc-extending"></a>
+## Extending LaTTe
 ### Adding databases / persistent store drivers
 LaTTe can easily be extended to support using various databases and other storage solutions.
 To have LaTTe use your persistent storage solution of choice, simply create a struct that satisfies the `DB` interface:
@@ -171,9 +172,74 @@ type DB interface {
 }
 ```
 
+<a name="toc-docker"></a>
+## Docker Images
+
+<a name="toc-tags"></a>
+### Image Tags
+There are several LaTTe images available to serve a wide range of needs, and they all follow the same tagging convention:
+```
+	latte:<VERSION>-[pg]-<base/full>
+```
+where \<VERSION\> denotes the latte version, [pg] if present denotes Postgres support, and \<base/full\> denotes the presence of either [texlive-full](https://packages.ubuntu.com/eoan/texlive-full) or [texlive-base](https://packages.ubuntu.com/eoan/texlive-base).
+	
+#### Currently Supported Tags
+The currently supported tags for LaTTe are:
+##### v0.9.6-base
+##### v0.9.6-pg-base
+##### latest, v0.9.6-full
+##### v0.9.6-pg-base
+
+<a name="toc-image-size"></a>
+### Image size
+LaTTe relies on [pdflatex](https://www.tug.org/applications/pdftex/) in order to actually create the PDF files.
+Unfortunately, this means that image sizes can be rather large (a full texlive installation is around 4GB).
+The build script in the `build` directory makes it easy to create custom sized images of LaTTe to fit your needs.
+
+<a name="toc-building-custom-images"></a>
+### Building Custom Images
+LaTTe comes with a build script, build/build.sh, which makes it easy to build LaTTe images with custom Go build flags and tex packages.
+
+```
+Usage: build.sh [-h] [-s] [-b build_tag] [-p latex_package] [-t image_tag]
+		[-d descriptor] [-H host_name] [-u user_name]
+
+Description: build.sh parametrically builds and tags Docker images for Latte.
+             The tag used for the image follows the template bellow:
+                 host_name/user_name/image_name:image_tag-descriptor
+
+Flags:
+  -b Build tags to be passed to the Go compiler.
+
+  -d Descriptor to be used when tagging the built image.
+
+  -h Show this help text.
+
+  -p LaTeX package to install, must be available in default Ubuntu repos.
+     (default: texlive-base)
+
+  -s Skip the image building stage. The generated Dockerfile will be sent to std out.
+
+  -t Tag the Docker image.
+     The image will be tagged with the current git tag if this flag is omitted.
+     If no git tag is found, we default to using 'latest' as the image tag.
+
+  -u Username to be used when tagging the built image.
+     (default: raphaelreyna)
+
+  -H Hostname to be used when tagging the built image.
+
+  -y Do not ask to confirm image tab before building image.
+```
+
+<a name="toc-contributing"></a>
+## Contributing
+Contributions are welcome!
+
+<a name="toc-roadmap"></a>
 ## Roadmap
 - :heavy_check_mark: <s>Registering templates and resources.</s>
 - Add support for AWS S3, <s>PostrgeSQL</s>, and possibly other forms of persistent storage.
-- CLI tool.
+- <s>CLI tool</s>.
 - Add support for building PDFs from multiple LaTeX files.
 - Whatever else comes up
