@@ -24,34 +24,35 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
 }
 
-func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) {
+func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) []byte {
 	w.WriteHeader(code)
 	if payload == nil {
-		return
+		return nil
 	}
 	switch payload.(type) {
 	case string:
 		w.Write([]byte(payload.(string)))
-		return
+		return nil
 	case []byte:
 		w.Write(payload.([]byte))
-		return
+		return nil
 	case io.ReadCloser:
 		_, err := io.Copy(w, payload.(io.ReadCloser))
 		if err != nil {
 			s.errLog.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil
 		}
-		return
+		return nil
 	default:
-		err := json.NewEncoder(w).Encode(payload)
+		payload, err := json.Marshal(payload)
 		if err != nil {
 			s.errLog.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil
 		}
-		return
+		w.Write(payload)
+		return payload
 	}
 }
 

@@ -26,6 +26,10 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// Resources must be a json object whose keys are the resources file names and value is the base64 encoded string of the file
 		Resources map[string]string `json:"resources"`
 	}
+	type errorResponse struct {
+		Error string `json:"error"`
+		Data  string `json:"data,omitonempty"`
+	}
 	type job struct {
 		tmpl    *template.Template
 		details map[string]interface{}
@@ -246,62 +250,103 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			if os.IsNotExist(err) {
 				if s.db == nil {
 					msg := fmt.Sprintf("details json with id %s not found", dtID)
-					s.respond(w, msg, http.StatusBadRequest)
+					er := errorResponse{Error: msg}
+					w.Header().Set("Content-Type", "application/json")
+					payload := s.respond(w, &er, http.StatusInternalServerError)
+					s.errLog.Println("%s", payload)
 					return
 				}
 				dtlsData, err := s.db.Fetch(r.Context(), dtID)
 				switch err.(type) {
 				case *NotFoundError:
 					msg := fmt.Sprintf("details json with id %s not found", dtID)
-					http.Error(w, msg, http.StatusInternalServerError)
+					er := errorResponse{Error: msg}
+					w.Header().Set("Content-Type", "application/json")
+					payload := s.respond(w, &er, http.StatusInternalServerError)
+					s.errLog.Println("%s", payload)
 					return
 				default:
 					if err != nil {
-						s.errLog.Println(err)
-						http.Error(w, err.Error(), http.StatusInternalServerError)
+						er := errorResponse{
+							Error: "error while getting json file info",
+							Data:  err.Error(),
+						}
+						w.Header().Set("Content-Type", "application/json")
+						payload := s.respond(w, &er, http.StatusInternalServerError)
+						s.errLog.Println("%s", payload)
 						return
 					}
 				}
 				err = toDisk(dtlsData, dtlsPath)
 				if err != nil {
-					s.errLog.Printf("error while writing to %s: %v", dtlsPath, err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+					er := errorResponse{
+						Error: "error while writing json file to disk",
+						Data:  err.Error(),
+					}
+					w.Header().Set("Content-Type", "application/json")
+					payload := s.respond(w, &er, http.StatusInternalServerError)
+					s.errLog.Println("%s", payload)
 					return
 				}
 				switch dtlsData.(type) {
 				case []byte:
 					err = json.Unmarshal(dtlsData.([]byte), &j.details)
 					if err != nil {
-						s.errLog.Println(err)
-						http.Error(w, err.Error(), http.StatusInternalServerError)
+						er := errorResponse{
+							Error: "error while decoding json",
+							Data:  err.Error(),
+						}
+						w.Header().Set("Content-Type", "application/json")
+						payload := s.respond(w, &er, http.StatusInternalServerError)
+						s.errLog.Println("%s", payload)
 						return
 					}
 				case io.ReadCloser:
 					rc := dtlsData.(io.ReadCloser)
 					err = json.NewDecoder(rc).Decode(&j.details)
 					if err != nil {
-						s.errLog.Println(err)
-						http.Error(w, err.Error(), http.StatusInternalServerError)
+						er := errorResponse{
+							Error: "error while decoding json",
+							Data:  err.Error(),
+						}
+						w.Header().Set("Content-Type", "application/json")
+						payload := s.respond(w, &er, http.StatusInternalServerError)
+						s.errLog.Println("%s", payload)
 						return
 					}
 					rc.Close()
 				}
 			} else if err != nil {
-				s.errLog.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				er := errorResponse{
+					Error: "error while getting json file info",
+					Data:  err.Error(),
+				}
+				w.Header().Set("Content-Type", "application/json")
+				payload := s.respond(w, &er, http.StatusInternalServerError)
+				s.errLog.Println("%s", payload)
 				return
 			}
 			if len(j.details) == 0 {
 				f, err := os.Open(dtlsPath)
 				if err != nil {
-					s.errLog.Println(err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+					er := errorResponse{
+						Error: "error while opening json file",
+						Data:  err.Error(),
+					}
+					w.Header().Set("Content-Type", "application/json")
+					payload := s.respond(w, &er, http.StatusInternalServerError)
+					s.errLog.Println("%s", payload)
 					return
 				}
 				err = json.NewDecoder(f).Decode(&j.details)
 				if err != nil {
-					s.errLog.Println(err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+					er := errorResponse{
+						Error: "error while decoding json",
+						Data:  err.Error(),
+					}
+					w.Header().Set("Content-Type", "application/json")
+					payload := s.respond(w, &er, http.StatusInternalServerError)
+					s.errLog.Println("%s", payload)
 					return
 				}
 				f.Close()
@@ -310,14 +355,17 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// Compile pdf
 		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir, s.cmd)
 		if err != nil {
-			s.errLog.Printf("error while compiling: %v\nCOMPILER OUTPUT: %s", err, pdfPath)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			er := &errorResponse{Error: err.Error(), Data: pdfPath}
+			w.Header().Set("Content-Type", "application/json")
+			payload := s.respond(w, er, http.StatusInternalServerError)
+			s.errLog.Println("%s", payload)
 			return
 		}
 		pdf, err := os.Open(filepath.Join(workDir, pdfPath))
 		if err != nil {
-			s.errLog.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "application/json")
+			payload := s.respond(w, &errorResponse{Error: "encountered an error"}, http.StatusInternalServerError)
+			s.errLog.Printf("%s", payload)
 			return
 		}
 		w.Header().Set("Content-Type", "application/pdf")
