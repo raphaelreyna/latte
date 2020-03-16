@@ -6,7 +6,7 @@ Generate PDFs using LaTeX templates and JSON.
 ## Table of Contents
 * [About](#toc-about)
 * [Obtaining LaTTe](#toc-obtaining)
-* [Running LaTTe](#toc-running-latte)
+* [Running & Using LaTTe](#toc-running-latte)
 	* [HTTP Service](#toc-http-service)
 		* [Environment Variables](#toc-env-vars)
 		* [Registering Files](#toc-registering-files)
@@ -34,13 +34,13 @@ LaTTe has two modes of operation:
 ## Obtaining LaTTe
 You can download the source code for LaTTe by running `git clone github.com/raphaelreyna/latte` in your terminal.
 LaTTe can then be easily compiled by running `go build ./cmd/latte`. 
-If you wish to build LaTTe with support for PostreSQL, simply run `go build -tags postgresql` instead. [More info on persistent storage support](#toc-extending-latte)
+If you wish to build LaTTe with support for PostreSQL, simply run `go build -tags postgresql` instead. [More info on persistent storage support](#toc-extending)
 
 LaTTe is also available via several docker images; running `docker run --rm -d -p 27182:27182 raphaelreyna/latte` will leave you with a basic version of LaTTe running as a an HTTP service.
 [More info on Docker images](#toc-docker)
 
 <a name="toc-running-latte"></a>
-## Running LaTTe
+## Running & Using LaTTe
 
 <a name="toc-http-service"></a>
 ### HTTP Service
@@ -150,7 +150,7 @@ Flags:
   -d Path to .json file to be used as the details to fill in to the tamplate.
   
 Other:
-    The final argument is optional and should be a path to resources needed for compilation, if needed.
+    The final argument is optional and should be a path to resources needed for compilation.
     Resources are any files that are referenced in the .tex file such as image files.
 ```
 
