@@ -27,6 +27,13 @@ func main() {
 		cmd = "pdftex"
 	}
 
+	// If user provides a directory path or a tex file, then run as cli tool and not as http server
+	if len(os.Args) > 1 {
+		if os.Args[1] != "server" {
+			cli(cmd, errLog, infoLog)
+			os.Exit(0)
+		}
+	}
 	root := os.Getenv("LATTE_ROOT")
 	if root == "" {
 		root, err = os.UserCacheDir()

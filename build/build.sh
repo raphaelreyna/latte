@@ -19,7 +19,7 @@ RUN apt update -q \\
   apt install -qy {TEXLIVE_PACKAGES} \\
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build-stage /latte/latte /bin/latte
-CMD [\"latte\"]\
+CMD [\"latte\", \"server\"]\
 "
 
 IMAGE_TAG=""
