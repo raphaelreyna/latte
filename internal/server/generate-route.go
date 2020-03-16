@@ -355,10 +355,10 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// Compile pdf
 		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir, s.cmd)
 		if err != nil {
-			er := &errorResponse{Error: err.Error(), Data: pdfPath}
+			er := &errorResponse{Error: err.Error(), Data: string(pdfPath)}
 			w.Header().Set("Content-Type", "application/json")
 			payload := s.respond(w, er, http.StatusInternalServerError)
-			s.errLog.Println("%s", payload)
+			s.errLog.Printf("%s", payload)
 			return
 		}
 		pdf, err := os.Open(filepath.Join(workDir, pdfPath))
