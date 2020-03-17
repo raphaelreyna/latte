@@ -5,6 +5,8 @@ Generate PDFs using LaTeX templates and JSON.
 
 [Try out the demo!](https://raphaelreyna.works/latte)
 
+[Find LaTTe on Docker Hub](https://hub.docker.com/r/raphaelreyna/latte)
+
 ## Table of Contents
 * [About](#toc-about)
 * [Obtaining LaTTe](#toc-obtaining)
