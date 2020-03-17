@@ -1,4 +1,6 @@
 # LaTTe
+![Docker Pulls](https://img.shields.io/docker/pulls/raphaelreyna/latte)
+
 Generate PDFs using LaTeX templates and JSON.
 
 [Try out the demo!](https://raphaelreyna.works/latte)
