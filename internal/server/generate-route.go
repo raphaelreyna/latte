@@ -18,17 +18,22 @@ import (
 )
 
 func (s *Server) handleGenerate() http.HandlerFunc {
+	type delimiters struct {
+		Left  string `json:"left"`
+		Right string `json:"right"`
+	}
 	type request struct {
 		// Template is base64 encoded .tex file
 		Template string `json:"template"`
 		// Details must be a json object
 		Details map[string]interface{} `json:"details"`
 		// Resources must be a json object whose keys are the resources file names and value is the base64 encoded string of the file
-		Resources map[string]string `json:"resources"`
+		Resources  map[string]string `json:"resources"`
+		Delimiters *delimiters       `json:"delimiters, omitempty"`
 	}
 	type errorResponse struct {
 		Error string `json:"error"`
-		Data  string `json:"data,omitonempty"`
+		Data  string `json:"data,omitempty"`
 	}
 	type job struct {
 		tmpl    *template.Template
@@ -63,6 +68,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			}()
 		}()
 		j := job{dir: workDir, details: map[string]interface{}{}}
+		delims := delimiters{Left: "#!", Right: "!#"}
 		// Grab any data sent as JSON
 		if r.Header.Get("Content-Type") == "application/json" {
 			var req request
@@ -77,10 +83,20 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				return
 			}
 			r.Body.Close()
+			if req.Delimiters != nil {
+				d := req.Delimiters
+				if d.Left == "" || d.Right == "" {
+					s.respond(w, "only received one delimiter; need none or both", http.StatusBadRequest)
+					return
+				}
+				delims = *req.Delimiters
+			}
 			if req.Template != "" {
 				// Check if we've already parsed this template; if not, parse it and cache the results
 				tHash := md5.Sum([]byte(req.Template))
-				cid := hex.EncodeToString(tHash[:])
+				// We append template delimiters to account for the same file being uploaded with different delimiters.
+				// This would really only happen on accident but not taking it into account leads to unexpected caching behavior.
+				cid := hex.EncodeToString(tHash[:]) + delims.Left + delims.Right
 				tmpls.Lock()
 				t, exists := tmpls.t[cid]
 				if !exists {
@@ -91,13 +107,15 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
-					t, err = template.New(cid).Delims("#!", "!#").Parse(string(tBytes))
+					t = template.New(cid).Delims(delims.Left, delims.Right)
+					t, err = t.Parse(string(tBytes))
 					if err != nil {
 						tmpls.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
+
 					tmpls.t[cid] = t
 				}
 				j.tmpl = t
@@ -128,6 +146,7 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		q := r.URL.Query()
 		// Grab template being requested in the URL
 		if tmplID := q.Get("tmpl"); j.tmpl == nil && tmplID != "" {
+			tmplID = tmplID + delims.Left + delims.Right
 			tmpls.Lock()
 			t, exists := tmpls.t[tmplID]
 			if !exists {
@@ -179,7 +198,8 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 						return
 					}
 				}
-				t, err = template.New(tmplID).Delims("#!", "!#").Parse(string(tmplBytes))
+				t = template.New(tmplID).Delims(delims.Left, delims.Right)
+				t, err = t.Parse(string(tmplBytes))
 				if err != nil {
 					tmpls.Unlock()
 					s.errLog.Println(err)
