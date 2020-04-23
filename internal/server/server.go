@@ -12,12 +12,14 @@ import (
 )
 
 type Server struct {
-	router  *mux.Router
-	rootDir string
-	db      DB
-	cmd     string
-	errLog  *log.Logger
-	infoLog *log.Logger
+	router     *mux.Router
+	rootDir    string
+	db         DB
+	cmd        string
+	errLog     *log.Logger
+	infoLog    *log.Logger
+	tCacheSize int
+	rCacheSize int
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +58,7 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) [
 	}
 }
 
-func NewServer(root, cmd string, db DB, err, info *log.Logger) (*Server, error) {
+func NewServer(root, cmd string, db DB, err, info *log.Logger, tCacheSize, rCacheSize int) (*Server, error) {
 	// Ping db to ensure connection
 	if db != nil {
 		if err := db.Ping(context.Background()); err != nil {
@@ -64,7 +66,14 @@ func NewServer(root, cmd string, db DB, err, info *log.Logger) (*Server, error) 
 		}
 		info.Println("successfully connected to database")
 	}
-	s := &Server{rootDir: root, db: db, errLog: err, infoLog: info}
+	s := &Server{
+		rootDir:    root,
+		db:         db,
+		errLog:     err,
+		infoLog:    info,
+		tCacheSize: tCacheSize,
+		rCacheSize: rCacheSize,
+	}
 	// Ensure root directory exists
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		if err = os.Mkdir(root, 0755); err != nil {
@@ -74,6 +83,5 @@ func NewServer(root, cmd string, db DB, err, info *log.Logger) (*Server, error) 
 		return nil, err
 	}
 	s.cmd = cmd
-	s.routes()
-	return s, nil
+	return s.routes()
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/golang-lru"
 	"github.com/raphaelreyna/latte/internal/compile"
 	"io"
 	"io/ioutil"
@@ -17,7 +18,7 @@ import (
 	"text/template"
 )
 
-func (s *Server) handleGenerate() http.HandlerFunc {
+func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 	type delimiters struct {
 		Left  string `json:"left"`
 		Right string `json:"right"`
@@ -41,15 +42,23 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		dir     string
 	}
 	type templates struct {
-		t map[string]*template.Template
+		t *lru.Cache
 		sync.Mutex
 	}
 	type resources struct {
-		r map[string]string
+		r *lru.Cache
 		sync.Mutex
 	}
-	tmpls := &templates{t: map[string]*template.Template{}}
-	rscs := &resources{r: map[string]string{}}
+	tmplsCache, err := lru.New(s.tCacheSize)
+	if err != nil {
+		return nil, err
+	}
+	rscsCache, err := lru.New(s.rCacheSize)
+	if err != nil {
+		return nil, err
+	}
+	tmpls := &templates{t: tmplsCache}
+	rscs := &resources{r: rscsCache}
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Create temporary directory into which we'll copy all of the required resource files
 		// and eventually run pdflatex in.
@@ -98,7 +107,8 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 				// This would really only happen on accident but not taking it into account leads to unexpected caching behavior.
 				cid := hex.EncodeToString(tHash[:]) + delims.Left + delims.Right
 				tmpls.Lock()
-				t, exists := tmpls.t[cid]
+				ti, exists := tmpls.t.Get(cid)
+				var t *template.Template
 				if !exists {
 					tBytes, err := base64.StdEncoding.DecodeString(req.Template)
 					if err != nil {
@@ -116,7 +126,9 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 						return
 					}
 
-					tmpls.t[cid] = t
+					tmpls.t.Add(cid, t)
+				} else {
+					t = ti.(*template.Template)
 				}
 				j.tmpl = t
 				tmpls.Unlock()
@@ -148,7 +160,8 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		if tmplID := q.Get("tmpl"); j.tmpl == nil && tmplID != "" {
 			tmplID = tmplID + delims.Left + delims.Right
 			tmpls.Lock()
-			t, exists := tmpls.t[tmplID]
+			ti, exists := tmpls.t.Get(tmplID)
+			var t *template.Template
 			if !exists {
 				// Try loading the template file from local disk, downloading it if it doesn't exist
 				tmplPath := filepath.Join(s.rootDir, tmplID)
@@ -206,7 +219,9 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				tmpls.t[tmplID] = t
+				tmpls.t.Add(tmplID, t)
+			} else {
+				t = ti.(*template.Template)
 			}
 			j.tmpl = t
 			tmpls.Unlock()
@@ -221,7 +236,8 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		for _, rscID := range rscsIDs {
 			// Prevent other routines from downloading this resource if its not found and we're already downloading it.
 			rscs.Lock()
-			rscPath, exists := rscs.r[rscID]
+			rscPathi, exists := rscs.r.Get(rscID)
+			var rscPath string
 			if _, err = os.Stat(rscPath); os.IsNotExist(err) || !exists {
 				if s.db == nil {
 					rscs.Unlock()
@@ -253,7 +269,9 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				rscs.r[rscID] = rscPath
+				rscs.r.Add(rscID, rscPath)
+			} else {
+				rscPath = rscPathi.(string)
 			}
 			rscs.Unlock()
 			err = os.Symlink(rscPath, filepath.Join(workDir, rscID))
@@ -391,5 +409,5 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/pdf")
 		io.Copy(w, pdf)
 		pdf.Close()
-	}
+	}, nil
 }
