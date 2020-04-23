@@ -67,6 +67,10 @@ The username that LaTTe will use to connect to its database (assuming LaTTe was 
 The password that LaTTe will use to connect to its database (assuming LaTTe was compiled with database support).
 ### `LATTE_DB_SSL`
 Dictates if the database that LaTTe will use is using SSL; acceptable values are `required` and `disable` (assuming LaTTe was compiled with database support).
+### `LATTE_TMPL_CACHE_SIZE`
+How many templates LaTTe will keep cached in memory. (defaults to 15)
+### `LATTE_RSC_CACHE_SIZE`
+How many resource files will LaTTe will keep cached in memory. (defaults to 15)
 
 <a name="toc-registering-files"></a>
 #### Registering a file
@@ -190,10 +194,10 @@ where \<VERSION\> denotes the latte version, [pg] if present denotes Postgres su
 	
 #### Currently Supported Tags
 The currently supported tags for LaTTe are:
-##### v0.10.0-base
-##### v0.10.0-pg-base
-##### latest, v0.10.0-full
-##### v0.10.0-pg-base
+##### v0.10.1-base
+##### v0.10.1-pg-base
+##### latest, v0.10.1-full
+##### v0.10.1-pg-base
 
 <a name="toc-image-size"></a>
 ### Image size
@@ -245,6 +249,6 @@ Contributions are welcome!
 ## Roadmap
 - :heavy_check_mark: <s>Registering templates and resources.</s>
 - Add support for AWS S3, <s>PostrgeSQL</s>, and possibly other forms of persistent storage.
-- <s>CLI tool</s>.
+- :heavy_check_mark: <s>CLI tool</s>.
 - Add support for building PDFs from multiple LaTeX files.
 - Whatever else comes up
