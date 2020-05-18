@@ -323,7 +323,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					payload := s.respond(w, &er, http.StatusInternalServerError)
-					s.errLog.Println("%s", payload)
+					s.errLog.Printf("%s", payload)
 					return
 				}
 				switch dtlsData.(type) {
@@ -336,7 +336,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 						}
 						w.Header().Set("Content-Type", "application/json")
 						payload := s.respond(w, &er, http.StatusInternalServerError)
-						s.errLog.Println("%s", payload)
+						s.errLog.Printf("%s", payload)
 						return
 					}
 				case io.ReadCloser:
@@ -349,7 +349,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 						}
 						w.Header().Set("Content-Type", "application/json")
 						payload := s.respond(w, &er, http.StatusInternalServerError)
-						s.errLog.Println("%s", payload)
+						s.errLog.Printf("%s", payload)
 						return
 					}
 					rc.Close()
@@ -361,7 +361,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				payload := s.respond(w, &er, http.StatusInternalServerError)
-				s.errLog.Println("%s", payload)
+				s.errLog.Printf("%s", payload)
 				return
 			}
 			if len(j.details) == 0 {
@@ -373,7 +373,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					payload := s.respond(w, &er, http.StatusInternalServerError)
-					s.errLog.Println("%s", payload)
+					s.errLog.Printf("%s", payload)
 					return
 				}
 				err = json.NewDecoder(f).Decode(&j.details)
@@ -384,7 +384,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					payload := s.respond(w, &er, http.StatusInternalServerError)
-					s.errLog.Println("%s", payload)
+					s.errLog.Printf("%s", payload)
 					return
 				}
 				f.Close()
