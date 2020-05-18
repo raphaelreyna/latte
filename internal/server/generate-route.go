@@ -291,7 +291,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					er := errorResponse{Error: msg}
 					w.Header().Set("Content-Type", "application/json")
 					payload := s.respond(w, &er, http.StatusInternalServerError)
-					s.errLog.Println("%s", payload)
+					s.errLog.Printf("%s", payload)
 					return
 				}
 				dtlsData, err := s.db.Fetch(r.Context(), dtID)
@@ -301,7 +301,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					er := errorResponse{Error: msg}
 					w.Header().Set("Content-Type", "application/json")
 					payload := s.respond(w, &er, http.StatusInternalServerError)
-					s.errLog.Println("%s", payload)
+					s.errLog.Printf("%s", payload)
 					return
 				default:
 					if err != nil {
@@ -311,7 +311,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 						}
 						w.Header().Set("Content-Type", "application/json")
 						payload := s.respond(w, &er, http.StatusInternalServerError)
-						s.errLog.Println("%s", payload)
+						s.errLog.Printf("%s", payload)
 						return
 					}
 				}
