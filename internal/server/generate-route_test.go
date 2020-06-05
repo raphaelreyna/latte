@@ -17,6 +17,10 @@ func TestHandleGenerate_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error while moving into testing directory: %+v", err)
 	}
+	type delimiters struct {
+		Left  string `json:"left"`
+		Right string `json:"right"`
+	}
 	type test struct {
 		Name string
 		// Name of .tex file in the testing tex assets folder
@@ -24,17 +28,34 @@ func TestHandleGenerate_Basic(t *testing.T) {
 		// Name of .json file in the testing details assets folder
 		DtlsFile string
 		// List of resource file names in the testing resources assets folder
-		Resources []string
+		Resources  []string
+		Delimiters delimiters
+		// OnMissingKey valid values: 'error', 'zero', 'nothing'
+		OnMissingKey string
 		// Name of the .pdf file in the testing pdf assets folder to test final product against
-		Expectation string
+		Expectation        string
+		ExpectedToPass     bool
+		ExpectedStatusCode int
 	}
 	tt := []test{
 		test{
-			Name:        "first",
-			TexFile:     "hello-world.tex",
-			DtlsFile:    "hello-world_alice.json",
-			Resources:   nil,
-			Expectation: "hello-world_alice.pdf",
+			Name:           "Basic",
+			TexFile:        "hello-world.tex",
+			DtlsFile:       "hello-world_alice.json",
+			Resources:      nil,
+			Delimiters:     delimiters{"#!", "!#"},
+			OnMissingKey:   "nothing",
+			Expectation:    "hello-world_alice.pdf",
+			ExpectedToPass: true,
+		},
+		test{
+			Name:           "Wrong details file",
+			TexFile:        "hello-world.tex",
+			DtlsFile:       "hello-world_wrong-field.json",
+			Delimiters:     delimiters{"#!", "!#"},
+			OnMissingKey:   "error",
+			Resources:      nil,
+			ExpectedToPass: false,
 		},
 	}
 	for _, tc := range tt {
@@ -71,13 +92,17 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			resources[rn] = resource
 		}
 		testPayload, err := json.Marshal(struct {
-			Template  string                 `json:"template"`
-			Details   map[string]interface{} `json:"details"`
-			Resources map[string]string      `json:"resources"`
+			Template     string                 `json:"template"`
+			Details      map[string]interface{} `json:"details"`
+			Resources    map[string]string      `json:"resources"`
+			Delimiters   delimiters             `json:"delimiters, omitempty"`
+			OnMissingKey string                 `json:"onMissingKey, omitempty"`
 		}{
-			Template:  tmplString,
-			Details:   dtlsMap,
-			Resources: resources,
+			Template:     tmplString,
+			Details:      dtlsMap,
+			Resources:    resources,
+			Delimiters:   tc.Delimiters,
+			OnMissingKey: tc.OnMissingKey,
 		})
 		if err != nil {
 			t.Fatalf("error while creating request payload: %+v", err)
@@ -98,7 +123,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 		}
 		hgFunc(rr, req)
 		response := rr.Result()
-		if response.StatusCode != 200 {
+		if response.StatusCode != 200 && tc.ExpectedToPass {
 			t.Fatalf("Got non 200 status from result: %s", response.Status)
 		}
 		err = os.Chdir(wd)
@@ -106,24 +131,28 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			t.Fatalf("error while moving back into testing directory")
 		}
 
-		// Grab expected PDF to test against and compare it to the received PDF
-		path = "./assets/PDFs/" + tc.Expectation
-		expectedPDF, err := GetContentsBase64(path)
-		if err != nil {
-			t.Fatalf("error while reading expected PDF: %+v", err)
-		}
-		receivedPDF, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			t.Fatalf("error while reading received PDF: %+v", err)
-		}
-		response.Body.Close()
-		receivedPDF64 := base64.StdEncoding.EncodeToString(receivedPDF)
+		// If test case is expected to pass, grab expected PDF to test against and compare it to the received PDF
+		if tc.ExpectedToPass {
+			path = "./assets/PDFs/" + tc.Expectation
+			expectedPDF, err := GetContentsBase64(path)
+			if err != nil {
+				t.Fatalf("error while reading expected PDF: %+v", err)
+			}
+			receivedPDF, err := ioutil.ReadAll(response.Body)
+			if err != nil {
+				t.Fatalf("error while reading received PDF: %+v", err)
+			}
+			response.Body.Close()
+			receivedPDF64 := base64.StdEncoding.EncodeToString(receivedPDF)
 
-		// Since PDFs seem to have some 'wiggle' to them, we have to make do with checking if our PDFs are 'close enough'
-		// (We define 'close enough' as no more than 1% difference when comparing byte-to-byte)
-		errorRate := DiffP(receivedPDF64, expectedPDF, t)
-		if errorRate > 1.0 {
-			t.Errorf("mismatch between received pdf and expected pdf exceeded 1%%: %f%%", errorRate)
+			// Since PDFs seem to have some 'wiggle' to them, we have to make do with checking if our PDFs are 'close enough'
+			// (We define 'close enough' as no more than 1% difference when comparing byte-by-byte)
+			errorRate := DiffP(receivedPDF64, expectedPDF, t)
+			if errorRate > 1.0 {
+				t.Errorf("mismatch between received pdf and expected pdf exceeded 1%%: %f%%", errorRate)
+			}
+		} else if response.StatusCode == 200 {
+			t.Errorf("expected non 200 status code\n")
 		}
 	}
 }
