@@ -44,7 +44,6 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			DtlsFile:       "hello-world_alice.json",
 			Resources:      nil,
 			Delimiters:     delimiters{"#!", "!#"},
-			OnMissingKey:   "nothing",
 			Expectation:    "hello-world_alice.pdf",
 			ExpectedToPass: true,
 		},

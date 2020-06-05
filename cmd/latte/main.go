@@ -45,7 +45,7 @@ func main() {
 	if root == "" {
 		root, err = os.UserCacheDir()
 		if err != nil {
-			errLog.Fatal("error creating root cache directory: %v", err)
+			errLog.Fatalf("error creating root cache directory: %v", err)
 		}
 	}
 	infoLog.Printf("root cache directory: %s", root)

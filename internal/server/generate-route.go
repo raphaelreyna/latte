@@ -31,6 +31,8 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		// Resources must be a json object whose keys are the resources file names and value is the base64 encoded string of the file
 		Resources  map[string]string `json:"resources"`
 		Delimiters *delimiters       `json:"delimiters, omitempty"`
+		// OnMissingKey valid values: 'error', 'zero', 'nothing'
+		OnMissingKey string `json:"onMissingKey"`
 	}
 	type errorResponse struct {
 		Error string `json:"error"`
@@ -78,6 +80,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		}()
 		j := job{dir: workDir, details: map[string]interface{}{}}
 		delims := delimiters{Left: "#!", Right: "!#"}
+		var tmplOption string
 		// Grab any data sent as JSON
 		if r.Header.Get("Content-Type") == "application/json" {
 			var req request
@@ -153,6 +156,22 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					return
 				}
 			}
+
+			// Grab options if they were provided
+			switch omk := req.OnMissingKey; omk {
+			case "error":
+				fallthrough
+			case "zero":
+				tmplOption = "missingkey=" + omk
+			case "nothing":
+				tmplOption = "missingkey=default"
+			case "":
+				break
+			default:
+				s.infoLog.Printf("received invalid onMissingKey field found in JSON body: %s\n", omk)
+				http.Error(w, "invalid onMissingKey field found in JSON body", http.StatusBadRequest)
+				return
+			}
 		}
 		// Grab any ids sent over the URL
 		q := r.URL.Query()
@@ -225,6 +244,23 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 			}
 			j.tmpl = t
 			tmpls.Unlock()
+
+			if tmplOption == "" {
+				switch omk := q.Get("onMissingKey"); omk {
+				case "error":
+					fallthrough
+				case "zero":
+					tmplOption = "missingkey=" + omk
+				case "nothing":
+					tmplOption = "missingkey=default"
+				case "":
+					break
+				default:
+					s.infoLog.Printf("received invalid onMissingKey field found in JSON body: %s\n", omk)
+					http.Error(w, "invalid onMissingKey field found in JSON body", http.StatusBadRequest)
+					return
+				}
+			}
 		} else if j.tmpl == nil {
 			err = errors.New("no template provided")
 			s.errLog.Println(err)
@@ -389,6 +425,9 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				}
 				f.Close()
 			}
+		}
+		if tmplOption != "" {
+			j.tmpl = j.tmpl.Option(tmplOption)
 		}
 		// Compile pdf
 		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir, s.cmd)
