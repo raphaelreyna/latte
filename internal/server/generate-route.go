@@ -197,7 +197,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					switch err.(type) {
 					case *NotFoundError:
 						tmpls.Unlock()
-						msg := fmt.Sprintf("template with id %s not found", tmplID)
+						msg := fmt.Sprintf("template with id %s not found on disk or in db", tmplID)
 						http.Error(w, msg, http.StatusInternalServerError)
 						return
 					default:
@@ -441,8 +441,8 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		pdf, err := os.Open(filepath.Join(workDir, pdfPath))
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			payload := s.respond(w, &errorResponse{Error: "encountered an error"}, http.StatusInternalServerError)
-			s.errLog.Printf("%s", payload)
+			_ = s.respond(w, &errorResponse{Error: "encountered an error"}, http.StatusInternalServerError)
+			s.errLog.Printf("error opening pdf: %s", err.Error())
 			return
 		}
 		w.Header().Set("Content-Type", "application/pdf")

@@ -9,6 +9,10 @@ import (
 )
 
 func Compile(ctx context.Context, tmpl *template.Template, dtls map[string]interface{}, dir, command string) (string, error) {
+	currDir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
 	os.Chdir(dir)
 	// Prepare pdflatex and grab a pipe to its stdin
 	jn := filepath.Base(dir)
@@ -29,6 +33,9 @@ func Compile(ctx context.Context, tmpl *template.Template, dtls map[string]inter
 	if err != nil {
 		return string(result), err
 	}
-	os.Chdir("..")
+	err = os.Chdir(currDir)
+	if err != nil {
+		return "", err
+	}
 	return jn + ".pdf", nil
 }

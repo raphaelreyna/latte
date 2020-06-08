@@ -24,6 +24,7 @@ func (nfe *NotFoundError) Error() string {
 	return "blob not found in database"
 }
 
+// toDisk only accepts argument i of types []byte or io.ReadCloser
 func toDisk(i interface{}, path string) error {
 	switch t := i.(type) {
 	case []byte:
