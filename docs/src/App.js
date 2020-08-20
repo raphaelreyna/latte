@@ -7,7 +7,7 @@ import "ace-builds/src-noconflict/mode-latex";
 import "ace-builds/src-noconflict/mode-json";
 import "ace-builds/src-noconflict/theme-monokai";
 
-const latteHost = 'https://latte-pdf.herokuapp.com/generate';
+const latteHost = 'https://raphaelreyna.works/api/latte/generate';
 const headers = {
 	'Content-Type': 'application/json',
 	'Access-Control-Allow-Origin': '*',
