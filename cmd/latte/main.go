@@ -56,13 +56,7 @@ func main() {
 		infoLog.Printf("couldn't pull templates cache size from environment: defaulting to %d", defaultTCS)
 		tcs = defaultTCS
 	}
-	rCacheSize := os.Getenv("LATTE_RSC_CACHE_SIZE")
-	rcs, err := strconv.Atoi(rCacheSize)
-	if err != nil {
-		infoLog.Printf("couldn't pull resources cache size from environment: defaulting to %d", defaultRCS)
-		rcs = defaultRCS
-	}
-	s, err := server.NewServer(root, cmd, db, errLog, infoLog, tcs, rcs)
+	s, err := server.NewServer(root, cmd, db, errLog, infoLog, tcs)
 	if err != nil {
 		errLog.Fatal(err)
 	}

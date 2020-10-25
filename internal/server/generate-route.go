@@ -47,20 +47,11 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		t *lru.Cache
 		sync.Mutex
 	}
-	type resources struct {
-		r *lru.Cache
-		sync.Mutex
-	}
 	tmplsCache, err := lru.New(s.tCacheSize)
 	if err != nil {
 		return nil, err
 	}
-	rscsCache, err := lru.New(s.rCacheSize)
-	if err != nil {
-		return nil, err
-	}
 	tmpls := &templates{t: tmplsCache}
-	rscs := &resources{r: rscsCache}
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Create temporary directory into which we'll copy all of the required resource files
 		// and eventually run pdflatex in.
@@ -173,9 +164,15 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				return
 			}
 		}
-		// Grab any ids sent over the URL
+
+		// *************************************************************
+		// Check the URL for template, details or resource IDs.
+		// These are used to symlink any previoulsly registered files
+		// into the working directory for this render/generate request.
+		// *************************************************************
 		q := r.URL.Query()
-		// Grab template being requested in the URL
+
+		// Check if a registered template is being requested in the URL, if so make sure its available on the local disk
 		if tmplID := q.Get("tmpl"); j.tmpl == nil && tmplID != "" {
 			tmplID = tmplID + delims.Left + delims.Right
 			tmpls.Lock()
@@ -267,17 +264,18 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		// Symlink resources into the working directory, downloading those that aren't in the root directory
+
+
+		// handle linking resources into the working directory, downloading those that aren't in the root directory
 		rscsIDs := q["rsc"]
 		for _, rscID := range rscsIDs {
-			// Prevent other routines from downloading this resource if its not found and we're already downloading it.
-			rscs.Lock()
-			rscPathi, exists := rscs.r.Get(rscID)
-			var rscPath string
-			if _, err = os.Stat(rscPath); os.IsNotExist(err) || !exists {
+			if rscID == "" { continue }
+
+			// If the file could not be found then check the remote store for the resource and download it to local disk.
+			rscPath := filepath.Join(s.rootDir, rscID)
+			if _, err = os.Stat(rscPath); os.IsNotExist(err) {
 				if s.db == nil {
-					rscs.Unlock()
-					msg := fmt.Sprintf("resource with id %s not found", rscID)
+					msg := fmt.Sprintf("resource with id %s not found at filepath: %s", rscID, rscPath)
 					s.respond(w, msg, http.StatusBadRequest)
 					return
 				}
@@ -285,38 +283,39 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				rscData, err := s.db.Fetch(r.Context(), rscID)
 				switch err.(type) {
 				case *NotFoundError:
-					rscs.Unlock()
 					msg := fmt.Sprintf("resource with id %s not found", rscID)
 					http.Error(w, msg, http.StatusInternalServerError)
 					return
 				default:
 					if err != nil {
-						rscs.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 				}
-				rscPath = filepath.Join(s.rootDir, rscID)
-				err = toDisk(rscData, rscPath)
-				if err != nil {
+
+				// If we could not find the file because rscPath is empty then we need to create the file path name
+				if rscPath == "" {
+					rscPath = filepath.Join(s.rootDir, rscID)
+				}
+
+				// Save the file to the local disk
+				if err = toDisk(rscData, rscPath); err != nil {
 					tmpls.Unlock()
 					s.errLog.Printf("error while writing to %s: %v", rscPath, err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				rscs.r.Add(rscID, rscPath)
-			} else {
-				rscPath = rscPathi.(string)
 			}
-			rscs.Unlock()
-			err = os.Symlink(rscPath, filepath.Join(workDir, rscID))
-			if err != nil {
+
+			// Symlink the resource into the working directory
+			if err = os.Symlink(rscPath, filepath.Join(workDir, rscID)); err != nil {
 				s.errLog.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
+
 		// Load and parse details json from local disk, downloading it from the db if not found on local disk
 		if dtID := q.Get("dtls"); len(j.details) == 0 && dtID != "" {
 			dtlsPath := filepath.Join(s.rootDir, dtID)
@@ -429,6 +428,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		if tmplOption != "" {
 			j.tmpl = j.tmpl.Option(tmplOption)
 		}
+
 		// Compile pdf
 		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir, s.cmd)
 		if err != nil {
@@ -438,6 +438,8 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 			s.errLog.Printf("%s", payload)
 			return
 		}
+
+		// Open the newly generated PDF and send it to the client
 		pdf, err := os.Open(filepath.Join(workDir, pdfPath))
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")

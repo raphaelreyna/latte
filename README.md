@@ -69,8 +69,6 @@ The password that LaTTe will use to connect to its database (assuming LaTTe was 
 Dictates if the database that LaTTe will use is using SSL; acceptable values are `required` and `disable` (assuming LaTTe was compiled with database support).
 ### `LATTE_TMPL_CACHE_SIZE`
 How many templates LaTTe will keep cached in memory. (defaults to 15)
-### `LATTE_RSC_CACHE_SIZE`
-How many resource files will LaTTe will keep cached in memory. (defaults to 15)
 
 <a name="toc-registering-files"></a>
 #### Registering a file
