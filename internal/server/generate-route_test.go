@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"path/filepath"
 )
 
 type mockDB map[string]interface{}
@@ -65,6 +66,12 @@ func TestHandleGenerate_Basic(t *testing.T) {
 
 		// OnMissingKey valid values: 'error', 'zero', 'nothing'
 		OnMissingKey string
+
+		// Compiler valid values: "pdflatex", "latexmk"
+		Compiler string
+
+		// Count valid values: > 0
+		Count uint
 	}
 
 	tt := []test{
@@ -74,6 +81,26 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			DtlsFile:       "hello-world_alice.json",
 			Resources:      nil,
 			Delimiters:     map[string]string{"left": "#!", "right": "!#"},
+			Expectation:    "hello-world_alice.pdf",
+			ExpectedToPass: true,
+		},
+		test{
+			Name:           "Basic with multiple recompiles",
+			TexFile:        "hello-world.tex",
+			DtlsFile:       "hello-world_alice.json",
+			Resources:      nil,
+			Delimiters:     map[string]string{"left": "#!", "right": "!#"},
+			Count: 4,
+			Expectation:    "hello-world_alice.pdf",
+			ExpectedToPass: true,
+		},
+		test{
+			Name:           "Basic with latexmk",
+			TexFile:        "hello-world.tex",
+			DtlsFile:       "hello-world_alice.json",
+			Resources:      nil,
+			Delimiters:     map[string]string{"left": "#!", "right": "!#"},
+			Compiler: "latexmk",
 			Expectation:    "hello-world_alice.pdf",
 			ExpectedToPass: true,
 		},
@@ -139,25 +166,29 @@ func TestHandleGenerate_Basic(t *testing.T) {
 	}
 	defer func() {
 		os.Chdir("../")
-		os.RemoveAll(testingDir)
+		// os.RemoveAll(testingDir)
 	}()
 
 	for _, tc := range tt {
 		t.Run(tc.Name, func(t *testing.T) {
 			// Each test case uses a new server
+			here, err := os.Getwd()
+			if err != nil {
+				t.Fatalf("error getting working directory: %s", err.Error())
+			}
 			s := Server{
 				cmd:        "pdflatex",
 				errLog:     log.New(log.Writer(), tc.Name+" Error: ", log.LstdFlags),
 				infoLog:    log.New(ioutil.Discard, "", log.LstdFlags),
 				tCacheSize: 1,
-				rCacheSize: 1,
+				rootDir: here,
 			}
-
 			// Does the test case require a local directory?
-			s.rootDir, err = ioutil.TempDir("./", "test_"+tc.Name)
+			testDir, err := ioutil.TempDir("./", "test_"+tc.Name)
 			if err != nil {
 				t.Fatalf("error while creating temporary directory: %s", err.Error())
 			}
+			s.rootDir = filepath.Join(s.rootDir, testDir)
 			os.Chdir(s.rootDir)
 			defer func() {
 				os.Chdir("../")
@@ -177,9 +208,13 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				Resources    map[string]string      `json:"resources"`
 				Delimiters   map[string]string      `json:"delimiters, omitempty"`
 				OnMissingKey string                 `json:"onMissingKey, omitempty"`
+				Count        uint                   `json:"count, omitempty"`
+				Compiler     string                 `json:"compiler, omitempty"`
 			}{
 				Delimiters:   tc.Delimiters,
 				OnMissingKey: tc.OnMissingKey,
+				Count: tc.Count,
+				Compiler: tc.Compiler,
 			}
 
 			// Handle Tex file
@@ -387,12 +422,19 @@ func GetContentsJSON(path string) (map[string]interface{}, error) {
 
 // DiffP tests the equality of the two strings and returns the percentage by which they differ.
 func DiffP(received, expected string, t *testing.T) float32 {
-	if len(received) != len(expected) {
+	abs := len(received) - len(expected)
+	if abs < 0 {
+		abs = -1 * abs
+	}
+	if abs > 10 {
 		t.Fatalf("Received PDF differs from expected PDF: received length = %d \t expected length = %d",
 			len(received), len(expected))
 	}
 	var mismatches int
 	for i, c := range received {
+		if len(expected) <= i {
+			break
+		}
 		if byte(c) != byte(expected[i]) {
 			mismatches++
 		}

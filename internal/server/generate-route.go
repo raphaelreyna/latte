@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"sync"
 	"text/template"
+	"strconv"
 )
 
 func (s *Server) handleGenerate() (http.HandlerFunc, error) {
@@ -33,6 +34,10 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		Delimiters *delimiters       `json:"delimiters, omitempty"`
 		// OnMissingKey valid values: 'error', 'zero', 'nothing'
 		OnMissingKey string `json:"onMissingKey"`
+		// Compiler valid values: 'pdflatex', 'latexmk'
+		Compiler compile.Compiler `json:"compiler"`
+		// Count valid values: > 0
+		Count uint `json:"count"`
 	}
 	type errorResponse struct {
 		Error string `json:"error"`
@@ -64,14 +69,15 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		s.infoLog.Printf("created new temp directory: %s", workDir)
 		defer func() {
 			go func() {
-				if err = os.RemoveAll(workDir); err != nil {
+				/*if err = os.RemoveAll(workDir); err != nil {
 					s.errLog.Println(err)
-				}
+				}*/
 			}()
 		}()
 		j := job{dir: workDir, details: map[string]interface{}{}}
 		delims := delimiters{Left: "#!", Right: "!#"}
 		var tmplOption string
+		cOpts := compile.Options{}
 		// Grab any data sent as JSON
 		if r.Header.Get("Content-Type") == "application/json" {
 			var req request
@@ -163,6 +169,9 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				http.Error(w, "invalid onMissingKey field found in JSON body", http.StatusBadRequest)
 				return
 			}
+
+			cOpts.CC = req.Compiler
+			cOpts.N = req.Count
 		}
 
 		// *************************************************************
@@ -429,8 +438,20 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 			j.tmpl = j.tmpl.Option(tmplOption)
 		}
 
+		// finish configuring compilation options
+		if cOpts.CC == "" {
+			cOpts.CC = compile.Compiler(q.Get("compiler"))
+		}
+		if cOpts.N < 2 {
+			if n, err := strconv.Atoi(q.Get("count")); err == nil {
+				cOpts.N = uint(n)
+			}
+		}
+		cOpts.Dir = j.dir
+
+
 		// Compile pdf
-		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, j.dir, s.cmd)
+		pdfPath, err := compile.Compile(r.Context(), j.tmpl, j.details, cOpts)
 		if err != nil {
 			er := &errorResponse{Error: err.Error(), Data: string(pdfPath)}
 			w.Header().Set("Content-Type", "application/json")
