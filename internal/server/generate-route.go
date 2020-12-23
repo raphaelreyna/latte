@@ -12,15 +12,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"text/template"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/raphaelreyna/go-recon/sources"
 	"github.com/raphaelreyna/latte/internal/job"
 )
 
-func (s *Server) handleGenerate() (http.HandlerFunc, error) {
+func (s *Server) handleGenerate() http.HandlerFunc {
 	type request struct {
 		// Template is base64 encoded .tex file
 		Template string `json:"template"`
@@ -30,7 +28,7 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		Resources  map[string]string `json:"resources"`
 		Delimiters job.Delimiters    `json:"delimiters, omitempty"`
 		// OnMissingKey valid values: 'error', 'zero', 'nothing'
-		OnMissingKey string `json:"onMissingKey"`
+		OnMissingKey job.MissingKeyOpt `json:"onMissingKey"`
 		// Compiler valid values: 'pdflatex', 'latexmk'
 		Compiler job.Compiler `json:"compiler"`
 		// Count valid values: > 0
@@ -42,12 +40,6 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		Data  string `json:"data,omitempty"`
 	}
 
-	// Cache parsed templates
-	tmplsCache, err := lru.New(s.tCacheSize)
-	if err != nil {
-		return nil, err
-	}
-	tmplsCacheMu := sync.Mutex{}
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Create temporary directory into which we'll copy all of the required resource files
 		// and eventually run pdflatex in.
@@ -60,21 +52,19 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		s.infoLog.Printf("created new temp directory: %s", workDir)
 		defer func() {
 			go func() {
-				/*if err = os.RemoveAll(workDir); err != nil {
+				if err = os.RemoveAll(workDir); err != nil {
 					s.errLog.Println(err)
-				}*/
+				}
 			}()
 		}()
-
-		sc := sources.NewDirSourceChain(sources.SoftLink, s.rootDir)
-		if s.db != nil {
-			sc = append(sc, s.db)
-		}
 
 		// Create a new job for this request
 		j := job.Job{Opts: job.DefaultOptions}
 		j.Root = workDir
-		var tmplOption string
+		j.SourceChain = sources.NewDirSourceChain(sources.SoftLink, s.rootDir)
+		if s.db != nil {
+			j.SourceChain = append(j.SourceChain, s.db)
+		}
 		cOpts := j.Opts
 
 		// Grab any data sent as JSON
@@ -103,13 +93,13 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				// We append template delimiters to account for the same file being uploaded with different delimiters.
 				// This would really only happen on accident but not taking it into account leads to unexpected caching behavior.
 				cid := hex.EncodeToString(tHash[:]) + cOpts.Delims.Left + cOpts.Delims.Right
-				tmplsCacheMu.Lock()
-				ti, exists := tmplsCache.Get(cid)
+				s.tmplCache.Lock()
+				ti, exists := s.tmplCache.Get(cid)
 				var t *template.Template
 				if !exists {
 					tBytes, err := base64.StdEncoding.DecodeString(req.Template)
 					if err != nil {
-						tmplsCacheMu.Unlock()
+						s.tmplCache.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
@@ -117,18 +107,18 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 					t = template.New(cid).Delims(cOpts.Delims.Left, cOpts.Delims.Right)
 					t, err = t.Parse(string(tBytes))
 					if err != nil {
-						tmplsCacheMu.Unlock()
+						s.tmplCache.Unlock()
 						s.errLog.Println(err)
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 
-					tmplsCache.Add(cid, t)
+					s.tmplCache.Add(cid, t)
 				} else {
 					t = ti.(*template.Template)
 				}
 				j.Template = t
-				tmplsCacheMu.Unlock()
+				s.tmplCache.Unlock()
 			}
 			// Grab details if they were provided
 			if len(req.Details) > 0 {
@@ -151,25 +141,21 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				}
 			}
 
-			// Grab options if they were provided
-			switch omk := req.OnMissingKey; omk {
-			case "error":
-				fallthrough
-			case "zero":
-				tmplOption = "missingkey=" + omk
-			case "nothing":
-				tmplOption = "missingkey=default"
-			case "":
-				break
-			default:
+			cOpts.OnMissingKey = req.OnMissingKey
+			if omk := cOpts.OnMissingKey; !omk.IsValid() {
 				s.infoLog.Printf("received invalid onMissingKey field found in JSON body: %s\n", omk)
 				http.Error(w, "invalid onMissingKey field found in JSON body", http.StatusBadRequest)
 				return
 			}
-
 			cOpts.CC = req.Compiler
 			cOpts.N = req.Count
 		}
+
+		// Default delimiters if they're invalid and set job options
+		if cOpts.Delims == job.EmptyDelimiters || cOpts.Delims == job.BadDefaultDelimiters {
+			cOpts.Delims = job.DefaultDelimiters
+		}
+		j.Opts = cOpts
 
 		// *************************************************************
 		// Check the URL for template, details or resource IDs.
@@ -180,23 +166,23 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 		// Check if a registered template is being requested in the URL, if so make sure its available on the local disk
 		if tmplID := q.Get("tmpl"); j.Template == nil && tmplID != "" {
 			tmplID = tmplID + cOpts.Delims.Left + cOpts.Delims.Right
-			tmplsCacheMu.Lock()
+			s.tmplCache.Lock()
 
-			ti, exists := tmplsCache.Get(tmplID)
+			ti, exists := s.tmplCache.Get(tmplID)
 			if !exists {
 				// Look for the requested template in the source chain and parse it
-				if err := j.GetTemplate(tmplID); err != nil {
-					tmplsCacheMu.Unlock()
+				if err := j.GetTemplate(q.Get("tmpl")); err != nil {
+					s.tmplCache.Unlock()
 					s.errLog.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 
-				tmplsCache.Add(tmplID, j.Template)
+				s.tmplCache.Add(tmplID, j.Template)
 			} else {
 				j.Template = ti.(*template.Template)
 			}
-			tmplsCacheMu.Unlock()
+			s.tmplCache.Unlock()
 		} else if j.Template == nil {
 			err = errors.New("no template provided")
 			s.errLog.Println(err)
@@ -204,18 +190,9 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 			return
 		}
 		// Finish setting up the template
-		if tmplOption == "" {
-			switch omk := q.Get("onMissingKey"); omk {
-			case "":
-				fallthrough
-			case "error":
-			case "zero":
-				tmplOption = "missingkey=" + omk
-				j.Template = j.Template.Option(tmplOption)
-			case "nothing":
-				tmplOption = "missingkey=default"
-				j.Template = j.Template.Option(tmplOption)
-			default:
+		if omk := q.Get("onMissingKey"); omk != "" && cOpts.OnMissingKey == "" {
+			cOpts.OnMissingKey = job.MissingKeyOpt(omk)
+			if omk := cOpts.OnMissingKey; !omk.IsValid() {
 				s.infoLog.Printf("received invalid onMissingKey field found in JSON body: %s\n", omk)
 				http.Error(w, "invalid onMissingKey field found in JSON body", http.StatusBadRequest)
 				return
@@ -244,7 +221,8 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 				cOpts.N = uint(n)
 			}
 		}
-		// Apply all configured options
+
+		// Set the job options
 		j.Opts = cOpts
 
 		// Compile pdf
@@ -257,16 +235,8 @@ func (s *Server) handleGenerate() (http.HandlerFunc, error) {
 			return
 		}
 
-		// Open the newly generated PDF and send it to the client
-		pdf, err := os.Open(filepath.Join(workDir, pdfPath))
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			_ = s.respond(w, &errorResponse{Error: "encountered an error"}, http.StatusInternalServerError)
-			s.errLog.Printf("error opening pdf: %s", err.Error())
-			return
-		}
+		// Send the newly rendered PDF to the client
 		w.Header().Set("Content-Type", "application/pdf")
-		io.Copy(w, pdf)
-		pdf.Close()
-	}, nil
+		http.ServeFile(w, r, filepath.Join(workDir, pdfPath))
+	}
 }

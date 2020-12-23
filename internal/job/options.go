@@ -42,6 +42,17 @@ func (mko MissingKeyOpt) IsValid() bool {
 	return mko == MK_Error || mko == MK_Zero || mko == MK_Nothing
 }
 
+func (mko MissingKeyOpt) Val() string {
+	switch mko {
+	case "":
+		fallthrough
+	case MK_Nothing:
+		return "default"
+	default:
+		return string(mko)
+	}
+}
+
 // Delimiters holds the left and right delimiters for a template
 type Delimiters struct {
 	Left  string
@@ -49,8 +60,18 @@ type Delimiters struct {
 }
 
 var DefaultDelimiters Delimiters = Delimiters{
+	Left:  "#!",
+	Right: "!#",
+}
+
+var BadDefaultDelimiters Delimiters = Delimiters{
 	Left:  "{{",
 	Right: "}}",
+}
+
+var EmptyDelimiters Delimiters = Delimiters{
+	Left:  "",
+	Right: "",
 }
 
 // Options holds the user settable options for a compilation job

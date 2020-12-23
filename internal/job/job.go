@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/raphaelreyna/go-recon"
+	"errors"
 )
 
 type Job struct {
@@ -32,6 +33,11 @@ func (j *Job) AddFiles(files ...string) {
 }
 
 func (j *Job) GetTemplate(id string) error {
+	// Make sure the delimiters aren't empty
+	if j.Opts.Delims.Left == "{{" || j.Opts.Delims.Left == "" ||
+		j.Opts.Delims.Right == "}}" || j.Opts.Delims.Right == ""{
+		return errors.New("invalid delimiters, cannot parse template")
+	}
 	f := recon.File{Name: id}
 	_, err := f.AddTo(j.Root, 0644, j.SourceChain)
 	if err != nil {
@@ -95,6 +101,7 @@ func (j *Job) CreateWorkDir(root string) (clean func() error, err error) {
 // the results and returns the location of the resulting PDF.
 func (j *Job) Compile(ctx context.Context) (string, error) {
 	opts := j.Opts
+
 	// Move into the working directory
 	currDir, err := os.Getwd()
 	if err != nil {
@@ -124,7 +131,8 @@ func (j *Job) Compile(ctx context.Context) (string, error) {
 		//os.Remove(texFile.Name())
 	}()
 
-	err = j.Template.Execute(texFile, j.Details)
+	tmpl := j.Template.Option("missingkey=" + j.Opts.OnMissingKey.Val())
+	err = tmpl.Execute(texFile, j.Details)
 	if err != nil {
 		return "", err
 	}

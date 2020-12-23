@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 type mockDB struct {
@@ -195,7 +196,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 		// os.RemoveAll(testingDir)
 	}()
 
-	for _, tc := range tt {
+	for _, tc := range tt[len(tt)-1:len(tt)] {
 		t.Run(tc.Name, func(t *testing.T) {
 			// Each test case uses a new server
 			here, err := os.Getwd()
@@ -206,8 +207,13 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				cmd:        "pdflatex",
 				errLog:     log.New(log.Writer(), tc.Name+" Error: ", log.LstdFlags),
 				infoLog:    log.New(ioutil.Discard, "", log.LstdFlags),
-				tCacheSize: 1,
 				rootDir:    here,
+			}
+
+			s.tmplCache = &templateCache{}
+			s.tmplCache.cache, err = lru.New(1)
+			if err != nil {
+				t.Fatalf("error while creating template cache: %s", err.Error())
 			}
 			// Does the test case require a local directory?
 			testDir, err := ioutil.TempDir("./", "test_"+tc.Name)
@@ -258,7 +264,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				if err != nil {
 					t.Fatalf("error while opening details file: %+v", err)
 				}
-				fPath := tc.TexFile + tc.Delimiters["left"] + tc.Delimiters["right"]
+				fPath := filepath.Join(s.rootDir, tc.TexFile)
 				err = toDisk(fileContents, fPath)
 				if err != nil {
 					wd, _ := os.Getwd()
@@ -270,8 +276,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				if err != nil {
 					t.Fatalf("error while opening details file: %+v", err)
 				}
-				id := tc.TexFile + tc.Delimiters["left"] + tc.Delimiters["right"]
-				err = s.db.Store(context.Background(), id, fileContents)
+				err = s.db.Store(context.Background(), tc.TexFile, fileContents)
 				if err != nil {
 					t.Fatalf("error while saving file to db: %s", err.Error())
 				}
@@ -374,12 +379,8 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error while grabbing current directory: %+v", err)
 			}
-			hgFunc, err := s.handleGenerate()
-			if err != nil {
-				t.Fatalf("error while creating the function being tested: %+v", err)
-			}
 			os.Chdir("../")
-			hgFunc(rr, req)
+			s.handleGenerate()(rr, req)
 			err = os.Chdir(wd)
 			if err != nil {
 				t.Fatalf("error while moving back into testing directory")

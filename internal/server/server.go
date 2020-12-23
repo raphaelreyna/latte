@@ -10,7 +10,22 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	lru "github.com/hashicorp/golang-lru"
+	"sync"
 )
+
+type templateCache struct {
+	sync.Mutex
+	cache *lru.Cache
+}
+
+func (tc *templateCache) Get(key string) (interface{}, bool) {
+	return tc.cache.Get(key)
+}
+
+func (tc *templateCache) Add(key string, val interface{}) bool {
+	return tc.cache.Add(key, val)
+}
 
 type Server struct {
 	router     *mux.Router
@@ -19,7 +34,7 @@ type Server struct {
 	cmd        string
 	errLog     *log.Logger
 	infoLog    *log.Logger
-	tCacheSize int
+	tmplCache *templateCache
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -58,21 +73,27 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) [
 	}
 }
 
-func NewServer(root, cmd string, db DB, err, info *log.Logger, tCacheSize int) (*Server, error) {
+func NewServer(root, cmd string, db DB, eLog, iLog *log.Logger, tCacheSize int) (*Server, error) {
+	var err error
 	// Ping db to ensure connection
 	if db != nil {
-		if err := db.Ping(context.Background()); err != nil {
+		if err = db.Ping(context.Background()); err != nil {
 			return nil, fmt.Errorf("error while pinging database: %v", err)
 		}
-		info.Println("successfully connected to database")
+		iLog.Println("successfully connected to database")
 	}
 	s := &Server{
 		rootDir:    root,
 		db:         db,
-		errLog:     err,
-		infoLog:    info,
-		tCacheSize: tCacheSize,
+		errLog:     eLog,
+		infoLog:    iLog,
 	}
+	s.tmplCache = &templateCache{}
+	s.tmplCache.cache, err = lru.New(tCacheSize)
+	if err != nil {
+		return nil, err
+	}
+
 	// Ensure root directory exists
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		if err = os.Mkdir(root, 0755); err != nil {
@@ -82,5 +103,5 @@ func NewServer(root, cmd string, db DB, err, info *log.Logger, tCacheSize int) (
 		return nil, err
 	}
 	s.cmd = cmd
-	return s.routes()
+	return s.routes(), nil
 }
