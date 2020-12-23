@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/raphaelreyna/latte/internal/job"
 )
 
 type mockDB struct {
@@ -210,8 +210,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				rootDir:    here,
 			}
 
-			s.tmplCache = &templateCache{}
-			s.tmplCache.cache, err = lru.New(1)
+			s.tmplCache, err = job.NewTemplateCache(1)
 			if err != nil {
 				t.Fatalf("error while creating template cache: %s", err.Error())
 			}

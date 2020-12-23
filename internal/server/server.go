@@ -10,22 +10,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	lru "github.com/hashicorp/golang-lru"
-	"sync"
+	"github.com/raphaelreyna/latte/internal/job"
 )
-
-type templateCache struct {
-	sync.Mutex
-	cache *lru.Cache
-}
-
-func (tc *templateCache) Get(key string) (interface{}, bool) {
-	return tc.cache.Get(key)
-}
-
-func (tc *templateCache) Add(key string, val interface{}) bool {
-	return tc.cache.Add(key, val)
-}
 
 type Server struct {
 	router     *mux.Router
@@ -34,7 +20,7 @@ type Server struct {
 	cmd        string
 	errLog     *log.Logger
 	infoLog    *log.Logger
-	tmplCache *templateCache
+	tmplCache *job.TemplateCache
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -88,8 +74,9 @@ func NewServer(root, cmd string, db DB, eLog, iLog *log.Logger, tCacheSize int) 
 		errLog:     eLog,
 		infoLog:    iLog,
 	}
-	s.tmplCache = &templateCache{}
-	s.tmplCache.cache, err = lru.New(tCacheSize)
+
+	// Create the template cache
+	s.tmplCache, err = job.NewTemplateCache(tCacheSize)
 	if err != nil {
 		return nil, err
 	}
