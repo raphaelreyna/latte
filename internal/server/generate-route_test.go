@@ -196,7 +196,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 		// os.RemoveAll(testingDir)
 	}()
 
-	for _, tc := range tt[len(tt)-1:len(tt)] {
+	for _, tc := range tt {
 		t.Run(tc.Name, func(t *testing.T) {
 			// Each test case uses a new server
 			here, err := os.Getwd()

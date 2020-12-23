@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/raphaelreyna/go-recon"
 	"errors"
+
+	"github.com/raphaelreyna/go-recon"
 )
 
 // Job represents the request for constructing a tex file from the template and details and then compiling that into a PDF.

@@ -100,7 +100,7 @@ func TestJob_Compile(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests[1:2] {
+	for _, test := range tests {
 		t.Run(test.Name, func(tt *testing.T) {
 			testingDir, err := ioutil.TempDir(filepath.Join(currDir, "../../testing"), "testingTmp")
 			if err != nil {

@@ -2,10 +2,10 @@ package job
 
 import (
 	"context"
-	"os/exec"
-	"os"
-	"path/filepath"
 	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
 )
 
 // Compile creates a tex file by filling in the template with the details and then compiles
