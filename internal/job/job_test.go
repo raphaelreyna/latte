@@ -30,7 +30,7 @@ func (t *Test) Run(tt *testing.T, root string) {
 	var err error
 
 	j := Job{}
-	j.AddFiles(t.Env.Resources...)
+	j.AddResource(t.Env.Resources...)
 	j.Root = root
 	t.Env.Root = root
 

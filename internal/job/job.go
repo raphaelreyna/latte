@@ -1,11 +1,9 @@
 package job
 
 import (
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"text/template"
 
@@ -13,6 +11,7 @@ import (
 	"errors"
 )
 
+// Job represents the request for constructing a tex file from the template and details and then compiling that into a PDF.
 type Job struct {
 	recon.Dir
 	Template *template.Template
@@ -20,7 +19,16 @@ type Job struct {
 	Opts     Options
 }
 
-func (j *Job) AddFiles(files ...string) {
+func NewJob(root string, sc recon.SourceChain) *Job {
+	j := &Job{Opts: DefaultOptions}
+	j.Root = root
+	j.SourceChain = sc
+
+	return j
+}
+
+// AddResource adds resource files to the Job that should be available in the root/working directory.
+func (j *Job) AddResource(files ...string) {
 	if j.Files == nil {
 		j.Files = []*recon.File{}
 	}
@@ -32,10 +40,10 @@ func (j *Job) AddFiles(files ...string) {
 	}
 }
 
+// GetTemplate looks for a template named id in the SourceChain and parses it, storing the results for later use.
 func (j *Job) GetTemplate(id string) error {
 	// Make sure the delimiters aren't empty
-	if j.Opts.Delims.Left == "{{" || j.Opts.Delims.Left == "" ||
-		j.Opts.Delims.Right == "}}" || j.Opts.Delims.Right == ""{
+	if j.Opts.Delims == BadDefaultDelimiters || j.Opts.Delims == EmptyDelimiters {
 		return errors.New("invalid delimiters, cannot parse template")
 	}
 	f := recon.File{Name: id}
@@ -45,7 +53,6 @@ func (j *Job) GetTemplate(id string) error {
 	}
 
 	name := filepath.Join(j.Root, f.Name)
-	//defer os.Remove(name)
 
 	data, err := ioutil.ReadFile(name)
 	if err != nil {
@@ -63,6 +70,7 @@ func (j *Job) GetTemplate(id string) error {
 	return nil
 }
 
+// GetDetails looks for a details file named id in the SourceChain and stores the results for later.
 func (j *Job) GetDetails(id string) error {
 	f := recon.File{Name: id}
 	_, err := f.AddTo(j.Root, 0644, j.SourceChain)
@@ -85,88 +93,4 @@ func (j *Job) GetDetails(id string) error {
 
 	j.Details = dtls
 	return nil
-}
-
-func (j *Job) CreateWorkDir(root string) (clean func() error, err error) {
-	if j.Root, err = ioutil.TempDir(root, ""); err != nil {
-		return nil, err
-	}
-
-	return func() error {
-		return os.RemoveAll(j.Root)
-	}, nil
-}
-
-// Compile creates a tex file by filling in the template with the details and then compiles
-// the results and returns the location of the resulting PDF.
-func (j *Job) Compile(ctx context.Context) (string, error) {
-	opts := j.Opts
-
-	// Move into the working directory
-	currDir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	os.Chdir(j.Root)
-	defer os.Chdir(currDir)
-
-	// Grab a valid compiler from the options
-	compiler := string(CC_Default)
-	if cc := opts.CC; cc.IsValid() {
-		compiler = string(opts.CC)
-	}
-	// Create the jobname from the options
-	jn := filepath.Base(j.Root)
-	if opts.N < 1 {
-		opts.N = 1
-	}
-
-	// Create the tex file
-	texFile, err := ioutil.TempFile(j.Root, "*_filled-in.tex")
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		texFile.Close()
-		//os.Remove(texFile.Name())
-	}()
-
-	tmpl := j.Template.Option("missingkey=" + j.Opts.OnMissingKey.Val())
-	err = tmpl.Execute(texFile, j.Details)
-	if err != nil {
-		return "", err
-	}
-
-	// Compile however many times the user asked for
-	for count := uint(0); count < opts.N; count++ {
-		// Make sure the context hasn't been canceled
-		if err := ctx.Err(); err != nil {
-			return "", err
-		}
-
-		args := []string{"-halt-on-error", "-jobname=" + jn}
-		if opts.CC == CC_Latexmk {
-			args = append(args, "-pdf")
-		}
-		args = append(args, texFile.Name())
-		// Create a handle for the compiler command
-		cmd := exec.CommandContext(ctx, compiler, args...)
-
-		switch count {
-		case opts.N - 1: // capture the error on the last run
-			// Run command and grab its output and log it
-			result, err := cmd.Output()
-			if err != nil {
-				return string(result), err
-			}
-		default:
-			if err = cmd.Start(); err != nil {
-				return "", err
-			}
-			if err = cmd.Wait(); err != nil {
-				return "", err
-			}
-		}
-	}
-	return jn + ".pdf", nil
 }
