@@ -37,7 +37,7 @@ func main() {
 	// If user provides a directory path or a tex file, then run as cli tool and not as http server
 	if len(os.Args) > 1 {
 		if os.Args[1] != "server" {
-			cli(cmd, errLog, infoLog)
+			cli(errLog, infoLog)
 			os.Exit(0)
 		}
 	}
