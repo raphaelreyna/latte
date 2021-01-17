@@ -39,9 +39,15 @@ func (r *Request) NewJob(root string, sc recon.SourceChain, cache *TemplateCache
 		r.Delimiters = DefaultDelimiters
 	}
 
-	opts.OnMissingKey = r.OnMissingKey
-	opts.CC = r.Compiler
-	opts.N = r.Count
+	if x := r.OnMissingKey; x != "" {
+		opts.OnMissingKey = x
+	}
+	if x := r.Compiler; x != "" {
+		opts.CC = x
+	}
+	if x := r.Count; x > 0 {
+		opts.N = x
+	}
 
 	j.Opts = opts
 	j.Details = r.Details

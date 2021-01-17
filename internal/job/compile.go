@@ -26,6 +26,7 @@ func (j *Job) Compile(ctx context.Context) (string, error) {
 	if cc := opts.CC; cc.IsValid() {
 		compiler = string(opts.CC)
 	}
+
 	// Create the jobname from the options
 	jn := filepath.Base(j.Root)
 	if opts.N < 1 {

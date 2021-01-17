@@ -12,7 +12,7 @@ func (c Compiler) IsValid() bool {
 var (
 	CC_PDFLatex Compiler = "pdflatex"
 	CC_Latexmk  Compiler = "latexmk"
-	CC_Default  Compiler
+	CC_Default  Compiler = CC_Latexmk
 )
 
 // Check if the system has Latemk installed, if so then make it the default
@@ -87,7 +87,7 @@ type Options struct {
 }
 
 var DefaultOptions Options = Options{
-	CC:           CC_PDFLatex,
+	CC:           CC_Default,
 	N:            1,
 	OnMissingKey: MK_Error,
 	Delims:       DefaultDelimiters,
