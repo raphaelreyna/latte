@@ -17,7 +17,7 @@ var (
 
 // Check if the system has Latemk installed, if so then make it the default
 func init() {
-	cmd := exec.Command("which", "latexm")
+	cmd := exec.Command("which", "latexmk")
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		CC_Default = CC_PDFLatex
