@@ -15,7 +15,9 @@ apt update && apt install -y --no-install-recommends miktex
 
 echo "Running post-installation process for MiKTeX ..."
 # Miktex needs to run some post-installation scripts
-miktexsetup finish
+miktexsetup --shared=yes finish
+initexmf --admin --set-config-value [MPM]AutoInstall=1
+mpm --find-updates
 
 echo "Finished installing MiKTeX!"
 
