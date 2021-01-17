@@ -5,32 +5,59 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"testing"
 	"path/filepath"
+	"testing"
+	"github.com/raphaelreyna/latte/internal/job"
 )
 
-type mockDB map[string]interface{}
+type mockDB struct {
+	data map[string]interface{}
+}
 
-func (mdb mockDB) Store(ctx context.Context, uid string, i interface{}) error {
-	mdb[uid] = i
+func (mdb *mockDB) Store(ctx context.Context, uid string, i interface{}) error {
+	mdb.data[uid] = i
 	return nil
 }
 
-func (mdb mockDB) Fetch(ctx context.Context, uid string) (interface{}, error) {
-	result, exists := mdb[uid]
+func (mdb *mockDB) Fetch(ctx context.Context, uid string) (interface{}, error) {
+	result, exists := mdb.data[uid]
 	if !exists {
-		return nil, &NotFoundError{}
+		return nil, errors.New("file not found")
 	}
 	return result, nil
 }
 
-func (mdb mockDB) Ping(ctx context.Context) error {
+func (mdb *mockDB) Ping(ctx context.Context) error {
 	return nil
+}
+
+func (mdb *mockDB) AddFileAs(name, destination string, perm os.FileMode) error {
+	log.Println("adding file from db")
+	file, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	data, exists := mdb.data[name]
+	if !exists {
+		os.Remove(file.Name())
+		log.Println("could not find file")
+		return fmt.Errorf("could not find file")
+	}
+
+	dataString := string(data.([]uint8))
+
+	_, err = file.Write([]byte(dataString))
+
+	return err
 }
 
 // TestHandleGenerate_Basic tests the end product PDF of a generate request.
@@ -90,7 +117,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			DtlsFile:       "hello-world_alice.json",
 			Resources:      nil,
 			Delimiters:     map[string]string{"left": "#!", "right": "!#"},
-			Count: 4,
+			Count:          4,
 			Expectation:    "hello-world_alice.pdf",
 			ExpectedToPass: true,
 		},
@@ -100,7 +127,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			DtlsFile:       "hello-world_alice.json",
 			Resources:      nil,
 			Delimiters:     map[string]string{"left": "#!", "right": "!#"},
-			Compiler: "latexmk",
+			Compiler:       "latexmk",
 			Expectation:    "hello-world_alice.pdf",
 			ExpectedToPass: true,
 		},
@@ -180,8 +207,12 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				cmd:        "pdflatex",
 				errLog:     log.New(log.Writer(), tc.Name+" Error: ", log.LstdFlags),
 				infoLog:    log.New(ioutil.Discard, "", log.LstdFlags),
-				tCacheSize: 1,
-				rootDir: here,
+				rootDir:    here,
+			}
+
+			s.tmplCache, err = job.NewTemplateCache(1)
+			if err != nil {
+				t.Fatalf("error while creating template cache: %s", err.Error())
 			}
 			// Does the test case require a local directory?
 			testDir, err := ioutil.TempDir("./", "test_"+tc.Name)
@@ -197,7 +228,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			if tc.TexFileRegLevel == 2 ||
 				tc.DtlsFileRegLevel == 2 ||
 				tc.ResourcesRegLevel == 2 {
-				s.db = mockDB(map[string]interface{}{})
+				s.db = &mockDB{map[string]interface{}{}}
 			}
 
 			// Build up the url query and payload
@@ -213,8 +244,8 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			}{
 				Delimiters:   tc.Delimiters,
 				OnMissingKey: tc.OnMissingKey,
-				Count: tc.Count,
-				Compiler: tc.Compiler,
+				Count:        tc.Count,
+				Compiler:     tc.Compiler,
 			}
 
 			// Handle Tex file
@@ -232,7 +263,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				if err != nil {
 					t.Fatalf("error while opening details file: %+v", err)
 				}
-				fPath := tc.TexFile + tc.Delimiters["left"] + tc.Delimiters["right"]
+				fPath := filepath.Join(s.rootDir, tc.TexFile)
 				err = toDisk(fileContents, fPath)
 				if err != nil {
 					wd, _ := os.Getwd()
@@ -244,8 +275,7 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				if err != nil {
 					t.Fatalf("error while opening details file: %+v", err)
 				}
-				id := tc.TexFile + tc.Delimiters["left"] + tc.Delimiters["right"]
-				err = s.db.Store(context.Background(), id, fileContents)
+				err = s.db.Store(context.Background(), tc.TexFile, fileContents)
 				if err != nil {
 					t.Fatalf("error while saving file to db: %s", err.Error())
 				}
@@ -348,12 +378,8 @@ func TestHandleGenerate_Basic(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error while grabbing current directory: %+v", err)
 			}
-			hgFunc, err := s.handleGenerate()
-			if err != nil {
-				t.Fatalf("error while creating the function being tested: %+v", err)
-			}
 			os.Chdir("../")
-			hgFunc(rr, req)
+			s.handleGenerate()(rr, req)
 			err = os.Chdir(wd)
 			if err != nil {
 				t.Fatalf("error while moving back into testing directory")

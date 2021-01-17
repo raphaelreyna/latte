@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+
+	"github.com/raphaelreyna/go-recon"
 )
 
 type DB interface {
@@ -16,6 +18,7 @@ type DB interface {
 	Fetch(ctx context.Context, uid string) (interface{}, error)
 	// Ping should check if the databases is reachable, if return error should be nil and non-nil otherwise.
 	Ping(ctx context.Context) error
+	recon.Source
 }
 
 type NotFoundError struct{}

@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"io"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/gorilla/mux"
+	"github.com/raphaelreyna/latte/internal/job"
 )
 
 type Server struct {
@@ -18,7 +20,7 @@ type Server struct {
 	cmd        string
 	errLog     *log.Logger
 	infoLog    *log.Logger
-	tCacheSize int
+	tmplCache *job.TemplateCache
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -57,21 +59,28 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) [
 	}
 }
 
-func NewServer(root, cmd string, db DB, err, info *log.Logger, tCacheSize int) (*Server, error) {
+func NewServer(root, cmd string, db DB, eLog, iLog *log.Logger, tCacheSize int) (*Server, error) {
+	var err error
 	// Ping db to ensure connection
 	if db != nil {
-		if err := db.Ping(context.Background()); err != nil {
+		if err = db.Ping(context.Background()); err != nil {
 			return nil, fmt.Errorf("error while pinging database: %v", err)
 		}
-		info.Println("successfully connected to database")
+		iLog.Println("successfully connected to database")
 	}
 	s := &Server{
 		rootDir:    root,
 		db:         db,
-		errLog:     err,
-		infoLog:    info,
-		tCacheSize: tCacheSize,
+		errLog:     eLog,
+		infoLog:    iLog,
 	}
+
+	// Create the template cache
+	s.tmplCache, err = job.NewTemplateCache(tCacheSize)
+	if err != nil {
+		return nil, err
+	}
+
 	// Ensure root directory exists
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		if err = os.Mkdir(root, 0755); err != nil {
@@ -81,5 +90,5 @@ func NewServer(root, cmd string, db DB, err, info *log.Logger, tCacheSize int) (
 		return nil, err
 	}
 	s.cmd = cmd
-	return s.routes()
+	return s.routes(), nil
 }

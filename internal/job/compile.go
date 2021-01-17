@@ -1,57 +1,62 @@
-package compile
+package job
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"text/template"
-	"io/ioutil"
 )
 
-func Compile(ctx context.Context, tmpl *template.Template, dtls map[string]interface{}, opts Options) (string, error) {
+// Compile creates a tex file by filling in the template with the details and then compiles
+// the results and returns the location of the resulting PDF.
+func (j *Job) Compile(ctx context.Context) (string, error) {
+	opts := j.Opts
+
 	// Move into the working directory
 	currDir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
-	os.Chdir(opts.Dir)
+	os.Chdir(j.Root)
 	defer os.Chdir(currDir)
 
 	// Grab a valid compiler from the options
-	compiler := string(PDFLatex)
+	compiler := string(CC_Default)
 	if cc := opts.CC; cc.IsValid() {
 		compiler = string(opts.CC)
 	}
 	// Create the jobname from the options
-	jn := filepath.Base(opts.Dir)
+	jn := filepath.Base(j.Root)
 	if opts.N < 1 {
 		opts.N = 1
 	}
 
+	// Create the tex file
+	texFile, err := ioutil.TempFile(j.Root, "*_filled-in.tex")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		texFile.Close()
+		//os.Remove(texFile.Name())
+	}()
+
+	tmpl := j.Template.Option("missingkey=" + j.Opts.OnMissingKey.Val())
+	err = tmpl.Execute(texFile, j.Details)
+	if err != nil {
+		return "", err
+	}
+
 	// Compile however many times the user asked for
-	for count := uint(0) ; count < opts.N ; count ++ {
+	for count := uint(0); count < opts.N; count++ {
 		// Make sure the context hasn't been canceled
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
 
-		texFile, err := ioutil.TempFile(opts.Dir, "*.tex")
-		if err != nil {
-			return "", err
-		}
-		defer func() {
-			texFile.Close()
-			//os.Remove(texFile.Name())
-		}()
-
-		err = tmpl.Execute(texFile, dtls)
-		if err != nil {
-			return "", err
-		}
-
-		args := []string{"-halt-on-error", "-jobname="+jn}
-		if opts.CC == Latexmk {
+		args := []string{"-halt-on-error", "-jobname=" + jn}
+		if opts.CC == CC_Latexmk {
 			args = append(args, "-pdf")
 		}
 		args = append(args, texFile.Name())
