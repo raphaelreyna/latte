@@ -36,6 +36,12 @@ github.com/mattn/go-sqlite3 v2.0.1+incompatible h1:xQ15muvnzGBHpIpdrNi1DA5x0+TcB
 github.com/mattn/go-sqlite3 v2.0.1+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/raphaelreyna/go-recon v0.0.0-20201216184444-f2ddda0e579c h1:dCDQgMILSXV7fsPX18wOSIK428FGcAcxZQk8GVIsipc=
+github.com/raphaelreyna/go-recon v0.0.0-20201216184444-f2ddda0e579c/go.mod h1:dlZ9MvOPDoHZSb7nAgtEc/b2LseQuVIYWtZqZTTYryY=
+github.com/raphaelreyna/go-recon v0.0.0-20201217022613-ff5bbe60197d h1:plIw9pVv5d2K2/M8pvPjumg9EW/4SzExrrt01YnFvK8=
+github.com/raphaelreyna/go-recon v0.0.0-20201217022613-ff5bbe60197d/go.mod h1:dlZ9MvOPDoHZSb7nAgtEc/b2LseQuVIYWtZqZTTYryY=
+github.com/raphaelreyna/go-recon v0.0.0-20201218233624-6f593f4ee7c8 h1:t2YftBOo3l5EpZi+vcr/GJprML6TiyrtBQQj2tUNR50=
+github.com/raphaelreyna/go-recon v0.0.0-20201218233624-6f593f4ee7c8/go.mod h1:dlZ9MvOPDoHZSb7nAgtEc/b2LseQuVIYWtZqZTTYryY=
 github.com/raphaelreyna/goft v0.0.0-20191216023903-ef6e29089e13 h1:NRhNO6aJ1EvfZJt1pBL1GRHjjRhfAAvGjlGTmVuAZgA=
 github.com/raphaelreyna/goft v0.0.0-20191216023903-ef6e29089e13/go.mod h1:DTJFLYf3PcBHyrtXt70foapcEE9ILSujSQ3kFG3dzIo=
 github.com/rs/cors v1.7.0 h1:+88SsELBHx5r+hZ8TCkggzSstaWNbDvThkVK8H6f9ik=
@@ -84,3 +90,4 @@ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.2 h1:ZCJp+EgiOT7lHqUV2J862kp8Qj64Jo6az82+3Td9dZw=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=

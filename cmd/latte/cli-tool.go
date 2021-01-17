@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"github.com/raphaelreyna/latte/internal/compile"
+	"github.com/raphaelreyna/latte/internal/job"
 	"log"
 	"os"
 	"path/filepath"
 	"text/template"
 )
 
-func cli(cmd string, errLog, infoLog *log.Logger) {
+func cli(errLog, infoLog *log.Logger) {
 	t := flag.String("t", "", "path to template/tex file")
 	d := flag.String("d", "", "path to details json file")
 	flag.Parse()
@@ -81,7 +81,11 @@ func cli(cmd string, errLog, infoLog *log.Logger) {
 		errLog.Fatalf("error while decoding json file %s: %v", *t, err)
 	}
 
-	pdfPath, err := compile.Compile(context.Background(), tmpl, dtls, p, cmd)
+	j := job.NewJob(p, nil)
+	j.Template = tmpl
+	j.Details = dtls
+
+	pdfPath, err := j.Compile(context.Background())
 	if err != nil {
 		errLog.Fatalf("error while compiling pdf: %v", err)
 	}

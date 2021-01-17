@@ -6,13 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jinzhu/gorm"
-	_ "github.com/lib/pq"
-	"github.com/raphaelreyna/latte/internal/server"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+
+	"github.com/jinzhu/gorm"
+	_ "github.com/lib/pq"
+	"github.com/raphaelreyna/latte/internal/server"
 )
 
 type Database struct {
@@ -92,4 +93,24 @@ func (db *Database) Fetch(ctx context.Context, uid string) (interface{}, error) 
 
 func (db *Database) Ping(ctx context.Context) error {
 	return db.db.DB().PingContext(ctx)
+}
+
+// AddFileAs allows *Database to satisfy the recon.Source interface (github.com/raphaelreyna/go-recon)
+func (db *Database) AddFileAs(name, destination string, perm os.FileMode) error {
+	var blob Blob
+	res := db.db.First(&blob, "uid = ?", name)
+	if err := res.Error; res.RecordNotFound() {
+		return nil, &server.NotFoundError{}
+	} else if err != nil {
+		return nil, err
+	}
+
+	file, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Write(blob.Bytes)
+	return err
 }
