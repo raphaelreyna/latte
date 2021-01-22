@@ -132,16 +132,15 @@ $ cat pythagorean_template.tex | base64
 ```
 which gives the output:
 ```
-XApUaGUgUHl0aGFnb3JlYW4gVGhlb3JlbTogJCMhLmEhIyBeIDIgKyAjIS5iISMgXiAyID0gIyEu
-YyEjIF4gMiQKXGJ5ZQo=
+XGRvY3VtZW50Y2xhc3N7YXJ0aWNsZX0KXHRpdGxle0xhVFRlIFNhbXBsZSBEb2N1bWVudH0KXGJlZ2lue2RvY3VtZW50fQpcbWFrZXRpdGxlClRoZSBQeXRoYWdvcmVhbiBUaGVvcmVtOiAKJCAjIS5hISMgXiAyICsgIyEuYiEjIF4gMiA9ICMhLmMhIyBeIDIgJApcZW5ke2RvY3VtZW50fQo=
 ```
 
 We then send this to LaTTe:
 ```
-$ curl -X POST -H "Content-Type: application/json" \
--d '{"template":"XApUaGUgUHl0aGFnb3JlYW4gVGhlb3JlbT\
-ogJCMhLmEhIyBeIDIgKyAjIS5iISMgXiAyID0gIyEuYyEjIF4gMiQKXGJ5ZQo=", \
-"details": { "a": "x", "b": "y", "c": "z" } }' \
+$ curl \
+-X POST \
+-H "Content-Type: application/json" \
+-d '{"template":"XGRvY3VtZW50Y2xhc3N7YXJ0aWNsZX0KXHRpdGxle0xhVFRlIFNhbXBsZSBEb2N1bWVudH0KXGJlZ2lue2RvY3VtZW50fQpcbWFrZXRpdGxlClRoZSBQeXRoYWdvcmVhbiBUaGVvcmVtOiAKJCAjIS5hISMgXiAyICsgIyEuYiEjIF4gMiA9ICMhLmMhIyBeIDIgJApcZW5ke2RvY3VtZW50fQo=", "details": { "a": "x", "b": "y", "c": "z" } }' \
 --output pythagorean.pdf "http://localhost:27182/generate"
 ```
 
