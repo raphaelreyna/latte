@@ -7,12 +7,12 @@
 
 DOCKERFILE="\
 # Build Stage
-FROM golang:1.13 AS build-stage
+FROM golang:1.16 AS build-stage
 ADD ./ /latte
 RUN cd /latte && env GOOS=linux GOARCH=amd64 go build {BUILD_TAGS} ./cmd/latte
 
 # Final Stage
-FROM ubuntu:19.10
+FROM ubuntu:21.04
 MAINTAINER Raphael Reyna <raphaelreyna@protonmail.com>
 RUN apt update -q \\
   && env DEBIAN_FRONTEND=noninteractive \\

@@ -197,10 +197,10 @@ where \<VERSION\> denotes the latte version, [pg] if present denotes Postgres su
 	
 #### Currently Supported Tags
 The currently supported tags for LaTTe are:
-##### v0.10.2-base
-##### v0.10.2-pg-base
-##### latest, v0.10.2-full
-##### v0.10.2-pg-base
+##### v0.11.0-base
+##### v0.11.0-pg-base
+##### latest, v0.11.0-full
+##### v0.11.0-pg-full
 
 <a name="toc-image-size"></a>
 ### Image size

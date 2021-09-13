@@ -97,12 +97,15 @@ func (db *Database) Ping(ctx context.Context) error {
 
 // AddFileAs allows *Database to satisfy the recon.Source interface (github.com/raphaelreyna/go-recon)
 func (db *Database) AddFileAs(name, destination string, perm os.FileMode) error {
-	var blob Blob
-	res := db.db.First(&blob, "uid = ?", name)
+	var (
+		blob Blob
+		res  = db.db.First(&blob, "uid = ?", name)
+	)
+
 	if err := res.Error; res.RecordNotFound() {
-		return nil, &server.NotFoundError{}
+		return &server.NotFoundError{}
 	} else if err != nil {
-		return nil, err
+		return err
 	}
 
 	file, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY, perm)

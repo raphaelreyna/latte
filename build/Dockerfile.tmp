@@ -1,0 +1,14 @@
+# Build Stage
+FROM golang:1.16 AS build-stage
+ADD ./ /latte
+RUN cd /latte && env GOOS=linux GOARCH=amd64 go build -tags postgresql ./cmd/latte
+
+# Final Stage
+FROM ubuntu:21.04
+MAINTAINER Raphael Reyna <raphaelreyna@protonmail.com>
+RUN apt update -q \
+  && env DEBIAN_FRONTEND=noninteractive \
+  apt install -qy  texlive-full \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=build-stage /latte/latte /bin/latte
+CMD ["latte", "server"]
