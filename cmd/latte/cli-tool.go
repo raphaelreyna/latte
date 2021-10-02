@@ -4,23 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"github.com/raphaelreyna/latte/internal/job"
-	"log"
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/raphaelreyna/latte/internal/job"
+	"github.com/rs/zerolog/log"
 )
 
-func cli(errLog, infoLog *log.Logger) {
+func cli() {
 	t := flag.String("t", "", "path to template/tex file")
 	d := flag.String("d", "", "path to details json file")
 	flag.Parse()
 	p := os.Args[len(os.Args)-1]
 	if *t == "" {
-		errLog.Fatal("no template/tex file provided")
+		log.Fatal().
+			Msg("no template/tex file provided")
 	}
 	if *d == "" {
-		errLog.Fatal("no details json file provided")
+		log.Fatal().
+			Msg("no details json file provided")
 	}
 
 	switch p {
@@ -37,7 +40,9 @@ func cli(errLog, infoLog *log.Logger) {
 	if p != "" {
 		statInfo, err := os.Stat(p)
 		if err != nil {
-			errLog.Fatalf("error while reading info for %s: %v", p, err)
+			log.Fatal().Err(err).
+				Str("arg", p).
+				Msg("error parsing argument")
 		}
 		if !statInfo.IsDir() {
 			p = ""
@@ -45,40 +50,55 @@ func cli(errLog, infoLog *log.Logger) {
 	}
 
 	if filepath.Ext(*t) != ".tex" {
-		errLog.Fatalf("%s must be a valid .tex file", *t)
+		log.Fatal().
+			Str("path", *t).
+			Msg("invalid tex file")
 	}
 	_, err := os.Stat(*t)
 	if err != nil {
-		errLog.Fatalf("error while reading info for %s: %v", *t, err)
+		log.Fatal().
+			Str("path", *t).
+			Msg("error reading file stat")
 	}
 
 	if filepath.Ext(*d) != ".json" {
-		errLog.Fatalf("%s must be a valid .json file", *d)
+		log.Fatal().
+			Str("path", *d).
+			Msg("invalid json file")
 	}
 	_, err = os.Stat(*d)
 	if err != nil {
-		errLog.Fatalf("error while reading info for %s: %v", *d, err)
+		log.Fatal().
+			Str("path", *d).
+			Msg("error reading file stat")
 	}
 
 	if p == "" {
 		p, err = os.Getwd()
 		if err != nil {
-			errLog.Fatalf("error while obtaining working directory: %v", err)
+			log.Fatal().Err(err).
+				Msg("error while obtaining working directory")
 		}
 	}
 	tmpl, err := template.New(filepath.Base(*t)).Delims("#!", "!#").ParseFiles(*t)
 	if err != nil {
-		errLog.Fatalf("error while parsing template %s: %v", *t, err)
+		log.Fatal().Err(err).
+			Str("template", *t).
+			Msg("error while parsing template")
 	}
 
 	var dtls map[string]interface{}
 	dFile, err := os.Open(*d)
 	if err != nil {
-		errLog.Fatalf("error while opening details json file %s: %v", *t, err)
+		log.Fatal().Err(err).
+			Str("path", *t).
+			Msg("error while opening details json file")
 	}
 	err = json.NewDecoder(dFile).Decode(&dtls)
 	if err != nil {
-		errLog.Fatalf("error while decoding json file %s: %v", *t, err)
+		log.Fatal().Err(err).
+			Str("path", *t).
+			Msg("error while decoding json file")
 	}
 
 	j := job.NewJob(p, nil)
@@ -87,7 +107,11 @@ func cli(errLog, infoLog *log.Logger) {
 
 	pdfPath, err := j.Compile(context.Background())
 	if err != nil {
-		errLog.Fatalf("error while compiling pdf: %v", err)
+		log.Fatal().Err(err).
+			Msg("error while compiling pdf")
 	}
-	infoLog.Printf("Successfully created PDF at location: %s", filepath.Join(p, pdfPath))
+
+	log.Info().
+		Str("path", filepath.Join(p, pdfPath)).
+		Msg("successfully created PDF at location")
 }

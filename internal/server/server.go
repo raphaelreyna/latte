@@ -5,21 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/raphaelreyna/latte/internal/job"
+	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
-	router     *mux.Router
-	rootDir    string
-	db         DB
-	cmd        string
-	errLog     *log.Logger
-	infoLog    *log.Logger
+	router    *mux.Router
+	rootDir   string
+	db        DB
+	cmd       string
 	tmplCache *job.TemplateCache
 }
 
@@ -42,7 +40,10 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) [
 	case io.ReadCloser:
 		_, err := io.Copy(w, payload.(io.ReadCloser))
 		if err != nil {
-			s.errLog.Println(err)
+			log.Warn().
+				Err(err).
+				Send()
+
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return nil
 		}
@@ -50,7 +51,10 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) [
 	default:
 		payload, err := json.Marshal(payload)
 		if err != nil {
-			s.errLog.Println(err)
+			log.Warn().
+				Err(err).
+				Send()
+
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return nil
 		}
@@ -59,20 +63,19 @@ func (s *Server) respond(w http.ResponseWriter, payload interface{}, code int) [
 	}
 }
 
-func NewServer(root, cmd string, db DB, eLog, iLog *log.Logger, tCacheSize int) (*Server, error) {
+func NewServer(root, cmd string, db DB, tCacheSize int) (*Server, error) {
 	var err error
 	// Ping db to ensure connection
 	if db != nil {
 		if err = db.Ping(context.Background()); err != nil {
 			return nil, fmt.Errorf("error while pinging database: %v", err)
 		}
-		iLog.Println("successfully connected to database")
+		log.Info().
+			Msg("succesfully connected to database")
 	}
 	s := &Server{
-		rootDir:    root,
-		db:         db,
-		errLog:     eLog,
-		infoLog:    iLog,
+		rootDir: root,
+		db:      db,
 	}
 
 	// Create the template cache

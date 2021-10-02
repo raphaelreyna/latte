@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
 	"github.com/raphaelreyna/latte/internal/job"
 )
 
@@ -204,10 +205,8 @@ func TestHandleGenerate_Basic(t *testing.T) {
 				t.Fatalf("error getting working directory: %s", err.Error())
 			}
 			s := Server{
-				cmd:        "pdflatex",
-				errLog:     log.New(log.Writer(), tc.Name+" Error: ", log.LstdFlags),
-				infoLog:    log.New(ioutil.Discard, "", log.LstdFlags),
-				rootDir:    here,
+				cmd:     "pdflatex",
+				rootDir: here,
 			}
 
 			s.tmplCache, err = job.NewTemplateCache(1)

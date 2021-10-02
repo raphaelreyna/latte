@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/gorilla/handlers"
-	"github.com/raphaelreyna/latte/internal/server"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
+
+	"github.com/gorilla/handlers"
+	"github.com/raphaelreyna/latte/internal/server"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -20,24 +21,28 @@ var db server.DB
 
 func main() {
 	var err error
-	errLog := log.New(os.Stderr, "ERROR: ", log.Lshortfile|log.LstdFlags)
-	infoLog := log.New(os.Stdout, "INFO: ", log.Lshortfile|log.LstdFlags)
 
 	// Check for pdfLaTeX (pdfTex will do in a pinch)
 	cmd := "pdflatex"
 	if _, err := exec.LookPath(cmd); err != nil {
-		errLog.Printf("error while searching checking pdflatex binary: %v\n\tchecking for pdftex binary", err)
+		log.Error().Err(err).
+			Msg("pdflatex not found, checking for pdftex")
+
 		if _, err := exec.LookPath("pdftex"); err != nil {
-			errLog.Fatal("neither pdflatex nor pdftex binary found in your $PATH")
+			log.Fatal().Err(err).
+				Msg("pdftex not found")
 		}
-		infoLog.Printf("found pdftex binary; falling back to using pdftex instead of pdflatex")
+
+		log.Info().
+			Msg("found pdftex binary; falling back to using pdftex instead of pdflatex")
+
 		cmd = "pdftex"
 	}
 
 	// If user provides a directory path or a tex file, then run as cli tool and not as http server
 	if len(os.Args) > 1 {
 		if os.Args[1] != "server" {
-			cli(errLog, infoLog)
+			cli()
 			os.Exit(0)
 		}
 	}
@@ -45,26 +50,46 @@ func main() {
 	if root == "" {
 		root, err = os.UserCacheDir()
 		if err != nil {
-			errLog.Fatalf("error creating root cache directory: %v", err)
+			log.Fatal().Err(err).
+				Msg("error creating root cache directory")
 		}
 	}
-	infoLog.Printf("root cache directory: %s", root)
+	log.Info().Str("path", root).
+		Msg("root cache directory")
 
 	tCacheSize := os.Getenv("LATTE_TMPL_CACHE_SIZE")
 	tcs, err := strconv.Atoi(tCacheSize)
 	if err != nil {
-		infoLog.Printf("couldn't pull templates cache size from environment: defaulting to %d", defaultTCS)
+		log.Warn().
+			Int("default", defaultTCS).
+			Msg("couldn't pull templates cache size from environment, using default")
 		tcs = defaultTCS
 	}
-	s, err := server.NewServer(root, cmd, db, errLog, infoLog, tcs)
+	s, err := server.NewServer(root, cmd, db, tcs)
 	if err != nil {
-		errLog.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "27182"
 	}
-	infoLog.Printf("listening for HTTP traffic on port: %s ...", port)
-	errLog.Fatal(http.ListenAndServe(":"+port, handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Access-Control-Allow-Origin"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(s)))
+	log.Info().
+		Str("port", port).Msg("listening for HTTP traffic")
+
+	err = http.ListenAndServe(":"+port,
+		handlers.CORS(
+			handlers.AllowedHeaders([]string{
+				"X-Requested-With", "Content-Type", "Authorization", "Access-Control-Allow-Origin",
+			}),
+			handlers.AllowedMethods([]string{
+				"GET", "POST", "PUT", "HEAD", "OPTIONS",
+			}),
+			handlers.AllowedOrigins([]string{"*"}),
+		)(s),
+	)
+
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
 }

@@ -12,6 +12,7 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/raphaelreyna/go-recon v0.1.0
 	github.com/rs/cors v1.8.0
+	github.com/rs/zerolog v1.25.0
 	github.com/zmb3/gogetdoc v0.0.0-20190228002656-b37376c5da6a // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	google.golang.org/appengine v1.4.0 // indirect

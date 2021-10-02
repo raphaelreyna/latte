@@ -9,6 +9,7 @@ import (
 
 	"github.com/raphaelreyna/go-recon/sources"
 	"github.com/raphaelreyna/latte/internal/job"
+	"github.com/rs/zerolog/log"
 )
 
 func (s *Server) handleGenerate() http.HandlerFunc {
@@ -22,15 +23,24 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// and eventually run pdflatex in.
 		workDir, err := ioutil.TempDir(s.rootDir, "")
 		if err != nil {
-			s.errLog.Println(err)
+			log.Warn().
+				Err(err).
+				Send()
+
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		s.infoLog.Printf("created new temp directory: %s", workDir)
+
+		log.Info().
+			Str("path", workDir).
+			Msg("created new temp dir")
+
 		defer func() {
 			go func() {
 				if err = os.RemoveAll(workDir); err != nil {
-					s.errLog.Println(err)
+					log.Warn().
+						Err(err).
+						Send()
 				}
 			}()
 		}()
@@ -46,14 +56,20 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 			var req job.Request
 			defer r.Body.Close()
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				s.errLog.Println(err)
+				log.Warn().
+					Err(err).
+					Send()
+
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			// Grab details if they were provided
 			if j, err = req.NewJob(workDir, j.SourceChain, s.tmplCache); err != nil {
-				s.errLog.Println(err)
+				log.Warn().
+					Err(err).
+					Send()
+
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -62,7 +78,10 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		// Check the url quuery values for a registered template, registered details or resources
 		// as well as for compilation options and modify the Job accordingly.
 		if err = j.ParseQuery(r.URL.Query(), s.tmplCache); err != nil {
-			s.errLog.Println(err)
+			log.Warn().
+				Err(err).
+				Send()
+
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -72,7 +91,10 @@ func (s *Server) handleGenerate() http.HandlerFunc {
 		if err != nil {
 			er := &errorResponse{Error: err.Error(), Data: string(pdfPath)}
 			w.Header().Set("Content-Type", "application/json")
-			s.errLog.Printf("%s", s.respond(w, er, http.StatusInternalServerError))
+			log.Warn().
+				Err(err).
+				Str("response", string(s.respond(w, er, http.StatusInternalServerError))).
+				Send()
 			return
 		}
 
