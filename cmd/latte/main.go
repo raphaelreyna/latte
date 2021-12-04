@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/gorilla/handlers"
-	"github.com/raphaelreyna/latte/internal/server"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
+
+	"github.com/gorilla/handlers"
+	"github.com/raphaelreyna/latte/internal/server"
 )
 
 const (
@@ -66,5 +67,20 @@ func main() {
 		port = "27182"
 	}
 	infoLog.Printf("listening for HTTP traffic on port: %s ...", port)
-	errLog.Fatal(http.ListenAndServe(":"+port, handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Access-Control-Allow-Origin"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(s)))
+	errLog.Fatal(http.ListenAndServe(":"+port, handlers.CORS(
+		handlers.AllowedHeaders([]string{
+			"Origin",
+			"X-Requested-With",
+			"Content-Type",
+			"Authorization",
+			"Access-Control-Allow-Origin",
+			"Access-Control-Request-Headers",
+			"Access-Control-Request-Method",
+		}),
+		handlers.AllowedMethods([]string{
+			"GET", "POST", "PUT",
+			"HEAD", "OPTIONS",
+		}),
+		handlers.AllowedOrigins([]string{"*"}))(s)),
+	)
 }
