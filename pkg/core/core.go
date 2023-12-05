@@ -13,13 +13,17 @@ import (
 // Core ties together the frontend, storage, and runtime.
 // It is responsible for handling requests from the frontend and
 // dispatching them to the runtime for rendering and storage.
-type core struct {
+type Core struct {
 	storage          *storage.Storage
 	renderFunc       pipeline.RenderFunc
 	postPipelineHook func(ctx context.Context, sharedDir string, jd *frontend.JobDone) error
 
+	ingresses []frontend.Ingress
+
 	sourceDir string
 	sharedDir string
+
+	stop func(context.Context) error
 }
 
 type Config struct {
@@ -67,22 +71,35 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// Start starts the frontend using the given ingress(es) after registering itself as the handler.
-// It returns a function that can be used to stop the frontend.
-func Start(ctx context.Context, c *Config) (func(ctx context.Context) error, error) {
+func NewCore(c *Config) (*Core, error) {
 	err := c.validate()
 	if err != nil {
-		return func(ctx context.Context) error { return nil },
-			fmt.Errorf("invalid core config: %w", err)
+		return nil, fmt.Errorf("invalid core config: %w", err)
 	}
 
-	cr := core{
+	return &Core{
 		storage:          c.Storage,
 		renderFunc:       c.RenderFunc,
 		sourceDir:        c.SourceDir,
 		sharedDir:        c.SharedDir,
+		ingresses:        c.Ingresses,
 		postPipelineHook: c.PostPipelineHook,
+	}, nil
+}
+
+// Start starts the frontend using the given ingress(es) after registering itself as the handler.
+// It returns a function that can be used to stop the frontend.
+func (c *Core) Start(ctx context.Context) error {
+	stop, err := frontend.Start(ctx, c.handleRequest, c.ingresses...)
+	c.stop = stop
+
+	return err
+}
+
+func (c *Core) Stop(ctx context.Context) error {
+	if c.stop == nil {
+		return nil
 	}
 
-	return frontend.Start(ctx, cr.handleRequest, c.Ingresses...)
+	return c.stop(ctx)
 }

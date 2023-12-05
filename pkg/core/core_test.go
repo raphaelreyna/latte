@@ -89,7 +89,10 @@ func TestStart(t *testing.T) {
 		},
 	}
 
-	stop, err := core.Start(ctx, &config)
+	cr, err := core.NewCore(&config)
+	is.NoErr(err)
+
+	err = cr.Start(ctx)
 	is.NoErr(err)
 
 	doneChan := make(chan struct{})
@@ -106,7 +109,7 @@ func TestStart(t *testing.T) {
 	case <-doneChan:
 	}
 
-	err = stop(ctx)
+	err = cr.Stop(ctx)
 	is.NoErr(err)
 
 	if len(jds) != len(requests) {

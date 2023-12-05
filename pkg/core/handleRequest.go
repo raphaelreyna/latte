@@ -14,7 +14,7 @@ import (
 	"github.com/raphaelreyna/latte/pkg/pipeline"
 )
 
-func (c *core) handleRequest(req *frontend.Request) {
+func (c *Core) handleRequest(req *frontend.Request) {
 	// TODO: validate job in the request
 	var (
 		ctx  = req.Context()
@@ -220,7 +220,7 @@ func removeAll(paths ...string) (err error) {
 // prepareDirs prepares the source and shared directories.
 // If the source is a local directory, it will be symlinked to the source directory.
 // If the source is an archive, it will be fetched and unarchived to the source directory.
-func (c *core) prepareDirs(ctx context.Context, id string, src *url.URL) (sourceDir, sharedDir string, err error) {
+func (c *Core) prepareDirs(ctx context.Context, id string, src *url.URL) (sourceDir, sharedDir string, err error) {
 	isLocalDir, err := isLocalDir(src)
 	if err != nil {
 		return "", "", fmt.Errorf("error checking if source is local directory: %w", err)

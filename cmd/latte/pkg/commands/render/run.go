@@ -26,9 +26,14 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) (err error) {
 		Storage:    nil,
 		RenderFunc: RenderFunc,
 	}
-	stopFunc, err := core.Start(ctx, &coreConfig)
+	cr, err := core.NewCore(&coreConfig)
+	if err != nil {
+		return fmt.Errorf("error creating core: %w", err)
+	}
+
+	err = cr.Start(ctx)
 	defer func() {
-		if e := stopFunc(ctx); e != nil {
+		if e := cr.Stop(ctx); e != nil {
 			err = errors.Join(err, fmt.Errorf("error stopping core: %w", e))
 		}
 	}()
