@@ -15,7 +15,6 @@ import (
 )
 
 func (c *Core) handleRequest(req *frontend.Request) {
-	// TODO: validate job in the request
 	var (
 		ctx  = req.Context()
 		strg = c.storage
@@ -67,7 +66,7 @@ func (c *Core) handleRequest(req *frontend.Request) {
 		pplnConf = pipeline.Configuration{
 			SourceDir:    sourceDir,
 			OutDir:       sharedDir,
-			WorkerCount:  3, // TODO: make this configurable
+			WorkerCount:  c.workerCount,
 			RenderCount:  j.RenderCount,
 			OnMissingKey: string(j.OnMissingKey),
 			RenderFunc:   c.renderFunc,

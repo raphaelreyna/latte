@@ -20,6 +20,8 @@ type Core struct {
 
 	ingresses []frontend.Ingress
 
+	workerCount int
+
 	sourceDir string
 	sharedDir string
 
@@ -45,6 +47,10 @@ type Config struct {
 	Ingresses  []frontend.Ingress
 	Storage    *storage.Storage
 	RenderFunc pipeline.RenderFunc
+
+	// WorkerCount is the number of workers that will be used in the pipeline.
+	// Anything less than 1 will be treated as 1.
+	WorkerCount int
 }
 
 func (c *Config) validate() error {
@@ -68,6 +74,10 @@ func (c *Config) validate() error {
 		return errors.New("renderFunc is required")
 	}
 
+	if c.WorkerCount < 0 {
+		c.WorkerCount = 1
+	}
+
 	return nil
 }
 
@@ -83,6 +93,7 @@ func NewCore(c *Config) (*Core, error) {
 		sourceDir:        c.SourceDir,
 		sharedDir:        c.SharedDir,
 		ingresses:        c.Ingresses,
+		workerCount:      c.WorkerCount,
 		postPipelineHook: c.PostPipelineHook,
 	}, nil
 }

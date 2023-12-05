@@ -52,6 +52,10 @@ type Ingress interface {
 
 type RequestHandler func(*Request)
 
+// Start starts the frontend which will handle requests from the given ingress(es).
+// It returns a function that can be used to stop the frontend.
+// Requests are dispatched to the handler in a new goroutine and are validated before
+// being dispatched.
 func Start(ctx context.Context, handler RequestHandler, ingress ...Ingress) (func(context.Context) error, error) {
 	// for each ingress, start a goroutine that will handle requests
 	// from the ingress by dispatching the request to the handler in a
