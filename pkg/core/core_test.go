@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/url"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matryer/is"
 	"github.com/raphaelreyna/latte/pkg/core"
 	"github.com/raphaelreyna/latte/pkg/frontend"
 	"github.com/raphaelreyna/latte/pkg/pipeline"
@@ -20,6 +20,8 @@ import (
 
 func TestStart(t *testing.T) {
 	ctx := context.Background()
+	is := is.New(t)
+
 	provider1 := test.MockProvider{
 		Data: make(map[string]*test.MockWriteCloser),
 	}
@@ -31,27 +33,20 @@ func TestStart(t *testing.T) {
 		"main.tex": []byte(`|@ .Name @|`),
 	}
 	archiveData, err := test.ArchiveAsPitch(dirData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	is.NoErr(err)
 
 	err = storage.StoreBytes(ctx, archiveData, &url.URL{
 		Scheme: "mock1",
 		Host:   "testing",
 		Path:   "/test",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	is.NoErr(err)
 
 	sourceDir, err := os.MkdirTemp("", "latte-test")
-	if err != nil {
-		t.Fatal(err)
-	}
+	is.NoErr(err)
+
 	sharedDir, err := os.MkdirTemp("", "latte-test")
-	if err != nil {
-		t.Fatal(err)
-	}
+	is.NoErr(err)
 
 	wg := sync.WaitGroup{}
 	jds := make([]*frontend.JobDone, 0)
@@ -95,9 +90,7 @@ func TestStart(t *testing.T) {
 	}
 
 	stop, err := core.Start(ctx, &config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	is.NoErr(err)
 
 	doneChan := make(chan struct{})
 	go func() {
@@ -105,7 +98,7 @@ func TestStart(t *testing.T) {
 		close(doneChan)
 	}()
 
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
@@ -113,31 +106,26 @@ func TestStart(t *testing.T) {
 	case <-doneChan:
 	}
 
-	if err = stop(ctx); err != nil {
-		t.Fatal(err)
-	}
+	err = stop(ctx)
+	is.NoErr(err)
 
 	if len(jds) != len(requests) {
 		t.Fatalf("expected %d job done(s), got %d", len(requests), len(jds))
 	}
 
-	for i, jd := range jds {
+	for _, jd := range jds {
 		artifactData, ok := provider1.Data[jd.ArtifactURL]
-		if !ok {
-			t.Fatalf("expected job done %d to have artifact data", i)
-		}
+		is.True(ok)
+
 		toc := jd.TableOfContents
-		br := toc["0/test.pdf"]
+		br, ok := toc["0/render-out/test.pdf"]
+		is.True(ok)
 		fileData := artifactData.Bytes()[br.Start:br.End]
 
-		if !bytes.Equal(fileData, []byte("PASS")) {
-			t.Fatalf("expected job done %d to have artifact data equal to 'PASS', got '%s'", i, artifactData.String())
-		}
+		is.Equal(fileData, []byte("PASS"))
 	}
 
-	if ppHookCallCount != len(jds) {
-		t.Fatalf("expected post pipeline hook to be called %d times, got %d", len(jds), ppHookCallCount)
-	}
+	is.Equal(ppHookCallCount, len(jds))
 }
 
 func render(p *pipeline.Pipeline, job *pipeline.RenderJob) error {

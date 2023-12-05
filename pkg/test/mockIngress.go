@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/raphaelreyna/latte/pkg/frontend"
@@ -13,9 +14,14 @@ type MockIngress struct {
 	RequestsQueue []*frontend.Request
 
 	rc chan *frontend.Request
+	mu *sync.Mutex
 }
 
 func (t *MockIngress) Start(ctx context.Context) error {
+	t.mu = &sync.Mutex{}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	n := time.Now()
 	t.StartedAt = &n
 
@@ -27,6 +33,9 @@ func (t *MockIngress) Start(ctx context.Context) error {
 }
 
 func (t *MockIngress) Stop(ctx context.Context) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	n := time.Now()
 	t.StoppedAt = &n
 	close(t.rc)

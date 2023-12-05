@@ -160,10 +160,10 @@ func NewPipeline(ctx context.Context, c Configuration) (*Pipeline, error) {
 	var (
 		p = Pipeline{
 			baseCtx:        ctx,
-			tjobs:          newSafeChan(make(chan *Job, c.WorkerCount), nil),
-			rjobs:          newSafeChan(make(chan *RenderJob, c.WorkerCount), nil),
-			ajobs:          newSafeChan(make(chan *ajob, c.WorkerCount), nil),
-			errChan:        newSafeChan(make(chan error, c.WorkerCount), nil),
+			tjobs:          newSafeChan(make(chan *Job, c.WorkerCount), 1, nil),
+			rjobs:          newSafeChan(make(chan *RenderJob, c.WorkerCount), c.WorkerCount, nil),
+			ajobs:          newSafeChan(make(chan *ajob, c.WorkerCount), c.WorkerCount, nil),
+			errChan:        newSafeChan(make(chan error, c.WorkerCount), c.WorkerCount, nil),
 			doneChan:       make(chan error, 1),
 			durations:      make(map[int]time.Duration),
 			outDir:         c.OutDir,
@@ -228,10 +228,15 @@ func (p *Pipeline) Add(tj *Job) {
 	p.tjobs.C() <- tj
 }
 
+// Close closes the pipeline to new jobs.
+// This triggers a cascade of channel closes which will cause the workers to exit gracefully.
 func (p *Pipeline) Close() {
 	p.tjobs.Close()
 }
 
+// Wait waits for all the workers to finish.
+// Wait only returns when all the workers have finished and Close has been called on the pipeline
+// (or when the context passed to the pipeline is cancelled or times out).
 func (p *Pipeline) Wait(ctx context.Context) error {
 	var err error
 	select {
@@ -308,15 +313,17 @@ type txChan[T any] interface {
 }
 
 type safeChan[T any, C txChan[T]] struct {
-	c      C
-	closed bool
-	mu     *sync.Mutex
+	c       C
+	closed  bool
+	wgCount int
+	mu      *sync.Mutex
 }
 
-func newSafeChan[T any, C txChan[T]](c C, mu *sync.Mutex) safeChan[T, C] {
+func newSafeChan[T any, C txChan[T]](c C, wgCount int, mu *sync.Mutex) safeChan[T, C] {
 	sc := safeChan[T, C]{
-		c:  c,
-		mu: mu,
+		c:       c,
+		wgCount: wgCount,
+		mu:      mu,
 	}
 	if sc.mu == nil {
 		sc.mu = &sync.Mutex{}
@@ -337,6 +344,10 @@ func (sc *safeChan[T, C]) Close() {
 		return
 	}
 
-	close(sc.c)
-	sc.closed = true
+	sc.wgCount--
+
+	if sc.wgCount == 0 {
+		close(sc.c)
+		sc.closed = true
+	}
 }

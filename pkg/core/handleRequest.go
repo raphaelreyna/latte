@@ -89,6 +89,7 @@ func (c *core) handleRequest(req *frontend.Request) {
 		ppln.Add(pj)
 		jd.Renders[idx] = frontend.ContextRender{}
 	}
+	ppln.Close()
 
 	// Create a context with a timeout and render the job
 	if j.Timeout != 0 {

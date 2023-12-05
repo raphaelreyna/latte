@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/matryer/is v1.4.1
 	github.com/spf13/cobra v1.7.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 )
