@@ -1,18 +1,15 @@
 module github.com/raphaelreyna/latte
 
-go 1.16
+go 1.21.0
+
+require github.com/raphaelreyna/pitch v1.1.4
 
 require (
-	github.com/felixge/httpsnoop v1.0.2 // indirect
-	github.com/gorilla/handlers v1.5.1
-	github.com/gorilla/mux v1.8.0
-	github.com/hashicorp/golang-lru v0.5.4
-	github.com/jinzhu/gorm v1.9.16
-	github.com/lib/pq v1.10.3
-	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
-	github.com/raphaelreyna/go-recon v0.1.0
-	github.com/rs/cors v1.8.0
-	github.com/zmb3/gogetdoc v0.0.0-20190228002656-b37376c5da6a // indirect
-	golang.org/x/tools v0.1.5 // indirect
-	google.golang.org/appengine v1.4.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+)
+
+require (
+	github.com/spf13/cobra v1.7.0
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 )

@@ -1,0 +1,88 @@
+package core
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/raphaelreyna/latte/pkg/frontend"
+	"github.com/raphaelreyna/latte/pkg/pipeline"
+	"github.com/raphaelreyna/latte/pkg/storage"
+)
+
+// Core ties together the frontend, storage, and runtime.
+// It is responsible for handling requests from the frontend and
+// dispatching them to the runtime for rendering and storage.
+type core struct {
+	storage          *storage.Storage
+	renderFunc       pipeline.RenderFunc
+	postPipelineHook func(ctx context.Context, sharedDir string, jd *frontend.JobDone) error
+
+	sourceDir string
+	sharedDir string
+}
+
+type Config struct {
+	// SourceDir is the directory where the source files are stored.
+	SourceDir string
+	// SharedDir is the directory shared with the runtime.
+	// Files from SourceDir will be either rendered (if they're templates) or
+	// symlinked (if they're not templates) to this directory.
+	// This is also the directory where the runtime will store its output.
+	SharedDir string
+
+	// PostPipelineHook is a function that will be called after the pipeline has
+	// finished with the job and the *JobDone has been created and set, and before
+	// the archive is stored.
+	// It can be used to perform cleanup, modify the *JobDone, modify the archive, etc.
+	// If it returns an error, the job will be marked as failed.
+	PostPipelineHook func(ctx context.Context, sharedDir string, jd *frontend.JobDone) error
+
+	Ingresses  []frontend.Ingress
+	Storage    *storage.Storage
+	RenderFunc pipeline.RenderFunc
+}
+
+func (c *Config) validate() error {
+	if c.SourceDir == "" {
+		return errors.New("source dir is required")
+	}
+
+	if c.SharedDir == "" {
+		return errors.New("shared dir is required")
+	}
+
+	if len(c.Ingresses) == 0 {
+		return errors.New("at least one ingress is required")
+	}
+
+	if c.Storage == nil {
+		return errors.New("storage is required")
+	}
+
+	if c.RenderFunc == nil {
+		return errors.New("renderFunc is required")
+	}
+
+	return nil
+}
+
+// Start starts the frontend using the given ingress(es) after registering itself as the handler.
+// It returns a function that can be used to stop the frontend.
+func Start(ctx context.Context, c *Config) (func(ctx context.Context) error, error) {
+	err := c.validate()
+	if err != nil {
+		return func(ctx context.Context) error { return nil },
+			fmt.Errorf("invalid core config: %w", err)
+	}
+
+	cr := core{
+		storage:          c.Storage,
+		renderFunc:       c.RenderFunc,
+		sourceDir:        c.SourceDir,
+		sharedDir:        c.SharedDir,
+		postPipelineHook: c.PostPipelineHook,
+	}
+
+	return frontend.Start(ctx, cr.handleRequest, c.Ingresses...)
+}
