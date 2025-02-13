@@ -3,7 +3,7 @@
 
 Generate PDFs using LaTeX templates and JSON.
 
-[Try out the demo!](https://rphlrn.com/latte-demo)
+[Try out the demo!](https://rreyna.dev/latte-demo)
 
 [Find LaTTe on Docker Hub](https://hub.docker.com/r/raphaelreyna/latte)
 
